@@ -2,7 +2,7 @@
 
 Retro TV weather for your Linux terminal. skydrop brings the look of the
 1990s Weather Channel "Local on the 8s" to the command line, along with
-serious weather tools: single-site NEXRAD radar modeled on Supercell Wx, a
+serious weather tools: single-site NEXRAD radar, a
 live warnings crawl, a NOAA Weather Radio style tornado alarm for your ZIP
 code, a feed from every weather station around you, and forecasts read
 aloud in a natural voice.
@@ -21,7 +21,7 @@ key, you can add it in Settings as an extra source.
 * **Nine screens**: current conditions, a 48-hour chart and table, a 10-day
   outlook, radar, a live station feed, alerts, air quality and UV, sky and
   almanac, and your NWS office's discussions and weather radio script.
-* **Radar like Supercell Wx**: one NEXRAD radar at full resolution, decoded
+* **Radar**: one NEXRAD radar at full resolution, decoded
   from its own Level 3 products: reflectivity, velocity, storm-relative
   velocity, correlation coefficient, differential reflectivity, specific
   differential phase, hydrometeor classification, echo tops, VIL, rain rate
@@ -124,7 +124,7 @@ right-hand sidebar adds radar, stations, almanac and more.
 | 1 | Now | Current conditions with a big temperature and icon, the NWS forecast in words, the extended forecast strip, the nearest official station, model data, next-6-hour rain, and a sidebar with the local radar, nearby stations, almanac, outlooks and air quality |
 | 2 | Hourly | 48-hour chart and table: temperature, feels-like, rain chance and amount, wind, gusts, humidity, dew point, clouds, UV, thunder chance, wet-bulb globe temperature, pressure, visibility; details for the selected hour, highlights, and the best times to be outside |
 | 3 | 10-Day | Icons for each day, a table with temperature range bars and NWS HeatRisk, "the outlook at a glance", a highs-and-lows chart, and the selected day's full NWS text plus hour by hour |
-| 4 | Radar | Single-site NEXRAD radar with every Level 3 product and tilt (or the national mosaic), the Supercell-style toolbox, linked panes, storm tracks, warning polygons, placefiles, and a nowcast that estimates when rain will reach you |
+| 4 | Radar | Single-site NEXRAD radar with every Level 3 product and tilt (or the national mosaic), the toolbox, linked panes, storm tracks, warning polygons, placefiles, and a nowcast that estimates when rain will reach you |
 | 5 | Stations | Live readings from every station in and around your ZIP code: airport ASOS/AWOS, citizen CWOP stations, state road-weather sensors, co-op, river and soil networks, with a map, each station's last 24 hours and a log of the newest reports |
 | 6 | Alerts | NWS watches, warnings and advisories with full text, SPC severe and WPC excessive-rain outlooks for your exact point, SPC watches, local storm reports, a regional radar with warning boxes, and the Hazardous Weather Outlook |
 | 7 | Air & UV | US AQI, every pollutant, past and next 24 hours, daily peaks, the UV curve, sunburn time and a short guide to what each pollutant is |
@@ -135,7 +135,7 @@ right-hand sidebar adds radar, stations, almanac and more.
 
 ## The radar
 
-The Radar screen works the way Supercell Wx does: you look at one radar at a
+The Radar screen: you look at one radar at a
 time, at its full resolution, and pick what it shows.
 
 * **Map settings**: the radar site (`◀` `▶` steps through the nearest ones,
@@ -160,14 +160,13 @@ from the radar, and how high the beam is there), the storm cells the radar is
 tracking (strength, motion, hail, mesocyclone and TVS flags, and when a cell
 could reach you), warnings in view (click one to go there), and the nowcast.
 
-The colors are GRLevelX color tables (`.pal`), the format Supercell Wx and
-GRLevel3 use. To use your own, put `ref.pal`, `vel.pal`, `cc.pal`, `zdr.pal`,
+The colors are GRLevelX color tables (`.pal`). To use your own, put `ref.pal`, `vel.pal`, `cc.pal`, `zdr.pal`,
 `kdp.pal`, `hc.pal`, `et.pal`, `vil.pal`, `rate.pal` or `precip.pal` in
 `~/.config/skydrop/palettes/`.
 
 ### Placefiles
 
-Placefiles are the overlay files GRLevel3, Supercell Wx and RadarScope read:
+Placefiles are the overlay files GRLevel3, RadarScope read:
 spotter positions, lightning, storm attributes, station plots and more. Add
 their addresses in Settings > Radar > Placefiles, separated by spaces or
 commas (local files such as `~/wx/mine.txt` work too). skydrop draws text,
