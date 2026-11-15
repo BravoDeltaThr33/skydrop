@@ -113,6 +113,10 @@ class TestBlock(unittest.TestCase):
         self.assertEqual(TF.own_size(self.path), TF.DEFAULT_SIZE)
 
 
+LINUX_SIGUSR1 = 10      # the fake /proc is Linux's, so its signal masks count signals as Linux does
+                        # (macOS numbers SIGUSR1 30, and has no /proc for skydrop to read anyway)
+
+
 class FakeProc:
     """A /proc with kitty (100) -> a shell (200) -> skydrop (300)."""
 
@@ -141,6 +145,7 @@ class FakeProc:
     def run(self, kitty_pid, **env):
         TF._KNOWN["at"] = -60.0
         with mock.patch.object(TF, "PROC", self.root), mock.patch.object(TF.os, "getpid", return_value=300), \
+                mock.patch.object(TF.signal, "SIGUSR1", LINUX_SIGUSR1), \
                 mock.patch.dict(os.environ, dict(env, KITTY_PID=str(kitty_pid)) if kitty_pid else env, clear=False):
             if not kitty_pid:
                 os.environ.pop("KITTY_PID", None)
@@ -152,7 +157,7 @@ class TestProcess(unittest.TestCase):
     def test_own_kitty(self):
         self.assertEqual(FakeProc().run(100), (100, None))
         # kitty reads SIGUSR1 from a signalfd: no handler, but blocked in every thread
-        usr1 = 1 << (signal.SIGUSR1 - 1)
+        usr1 = 1 << (LINUX_SIGUSR1 - 1)
         self.assertEqual(FakeProc(caught=0x2, blocked=[0x14a03, 0xfffffffe3ffbfaff, 0x14a03]).run(100), (100, None))
         self.assertTrue(0x14a03 & usr1)
         # one thread that doesn't block it would take the default (the end of kitty): not sent
@@ -163,7 +168,7 @@ class TestProcess(unittest.TestCase):
         self.assertIn("ssh or tmux", FakeProc().run(400)[1])            # a kitty, but not skydrop's ancestor
         self.assertIn("ssh or tmux", FakeProc().run(999)[1])            # no such process
         self.assertIsNone(FakeProc(kitty_name="bash").run(100)[0])      # KITTY_PID left over in another terminal
-        no_usr1 = 0x4202 & ~(1 << (signal.SIGUSR1 - 1))
+        no_usr1 = 0x4202 & ~(1 << (LINUX_SIGUSR1 - 1))
         self.assertIn("update kitty", FakeProc(caught=no_usr1).run(100)[1])
 
     def test_config_path(self):
