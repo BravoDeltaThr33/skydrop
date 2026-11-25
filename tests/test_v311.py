@@ -183,17 +183,29 @@ class TestAreaOnScreens(unittest.TestCase):
         v = view()
         lines = SC.next_hours(self.hourly(), v.fmt, 120, v=v)
         slots = {s[1] for ln in lines for _t, s in ln if isinstance(s, tuple) and s and s[0] == "@img"}
-        self.assertEqual(len(slots), 2)
-        self.assertTrue(any(x.startswith("areaTemp") for x in slots))
-        self.assertTrue(any(x.startswith("areaRain") for x in slots))
+        self.assertEqual(len(slots), 1)                                  # one chart: the temperature and the bars
+        self.assertTrue(all(x.startswith("areaNext") for x in slots))
         joined = "\n".join(text(ln) for ln in lines)
-        self.assertIn("Temp", joined)                                    # the titles stay text
-        self.assertIn("Rain", joined)
+        self.assertIn("Temp", joined)                                    # the title stays text
+        self.assertIn("Precipitation", text(lines[-1]))                  # and the key
         self.assertIn("Now", joined)                                     # and the hours along the bottom
-        cols, rows, build, _key = next(v.images.asked[s] for s in v.images.asked if s.startswith("areaTemp"))
-        self.assertEqual(rows, 6)                                        # 5 rows of chart, 1 for the values
+        cols, rows, build, _key = next(v.images.asked[s] for s in v.images.asked if s.startswith("areaNext"))
+        self.assertEqual(rows, 7)                                        # 6 rows of chart, 1 for the values
         img = build("pixels", cols * 9, rows * 18)
         self.assertEqual(img.size, (cols * 9, rows * 18))
+        # the bars (rain, in the theme's green) stand in the foot of the picture, under the area
+        green = v.theme.spec("p_rain2")[0]
+        near = [(x, y) for y in range(img.height) for x in range(img.width)
+                if sum(abs(a - b) for a, b in zip(img.getpixel((x, y)), green)) < 30]
+        self.assertTrue(near)
+        self.assertGreater(min(y for _x, y in near), img.height - 3 * 18 - 1)
+        self.assertEqual(max(y for _x, y in near), img.height - 1)      # standing on the base
+        # dry hours: the area alone, as before
+        dry = {"hourly": [dict(r, pop=0) for r in self.hourly()["hourly"]]}
+        v = view()
+        SC.next_hours(dry, v.fmt, 120, v=v)
+        (cols, rows, build, _key), = v.images.asked.values()
+        self.assertEqual(rows, 6)
 
     def test_text_elsewhere(self):
         for v in (view(pixels=False), view(printing=True), None):

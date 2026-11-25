@@ -355,16 +355,20 @@ def faded(style, k):
 
 
 def area_chart(values, width, height, lo=None, hi=None, style="value", tops=None, labels=None,
-               axis=(), guides=(), gutter=None, title="", now=None, base=True, plot=None, plot_from=None):
+               axis=(), guides=(), gutter=None, title="", now=None, base=True, plot=None, plot_from=None,
+               band=0, bars=()):
     """An area chart `width` cells wide and `height` rows tall: a line through the values
     (each at the middle of its share of the width, straight between them) drawn to an
     eighth of a cell, the area under it filled, brightest along the line and darker toward
     the base. The arguments are column_chart's; a style for each value colors the area
     around it, a style(value) colors it by the line's height there; `guides` run across
-    the area, over its fill. `plot`, when given, is a picture of the area to show in its
-    place (with the row over it for the values' text, when there are values): rows of
-    spans from column `plot_from` (the gutter's end, or 0 when the picture draws the scale
-    too), its values, guides and scale its own. Returns a list of lines."""
+    the area, over its fill. `band` rows at the foot hold bars for some of the values,
+    `bars` [(i, fraction, style, text)]: each as tall as its fraction of the band less its
+    top row, its text just over it; the area stands on the band. `plot`, when given, is a
+    picture of the area (and the band) to show in its place (with the row over it for the
+    values' text, when there are values): rows of spans from column `plot_from` (the
+    gutter's end, or 0 when the picture draws the scale too), its values, guides and scale
+    its own. Returns a list of lines."""
     n = len(values)
     nums = [x for x in values if x is not None]
     if not n or not nums or width < 4 or height < 1:
@@ -380,6 +384,8 @@ def area_chart(values, width, height, lo=None, hi=None, style="value", tops=None
         return []
     top_row = 1 if tops else 0
     rows = top_row + height
+    band = max(0, min(height - 1, int(band or 0)))
+    area_h = height - band                      # the area's rows; the band's under them
     blank = (" ", "text")
     grid = [[blank] * width for _ in range(rows)]
     guide = GUIDE_ASCII if asc else GUIDE
@@ -416,7 +422,7 @@ def area_chart(values, width, height, lo=None, hi=None, style="value", tops=None
         return style
 
     def row_of(value):
-        return top_row + height - max(1, min(height, int(round(max(0.0, min(1.0, (value - lo) / span)) * height))))
+        return top_row + area_h - max(1, min(area_h, int(round(max(0.0, min(1.0, (value - lo) / span)) * area_h))))
 
     if plot is None:
         # the area: each cell column sampled at its middle
@@ -430,23 +436,23 @@ def area_chart(values, width, height, lo=None, hi=None, style="value", tops=None
                 continue
             sty = style_at(p, value)
             if asc:
-                cells = max(1, int(round(max(0.0, min(1.0, (value - lo) / span)) * height)))
+                cells = max(1, int(round(max(0.0, min(1.0, (value - lo) / span)) * area_h)))
                 for k in range(cells):
-                    put(top_row + height - 1 - k, x, "#" if k < cells - 1 else ":", sty)
-                edge[x] = top_row + height - cells
+                    put(top_row + area_h - 1 - k, x, "#" if k < cells - 1 else ":", sty)
+                edge[x] = top_row + area_h - cells
                 continue
-            eighths = max(1, int(round(max(0.0, min(1.0, (value - lo) / span)) * height * 8)))
+            eighths = max(1, int(round(max(0.0, min(1.0, (value - lo) / span)) * area_h * 8)))
             full, part = divmod(eighths, 8)
             cells = full + (1 if part else 0)
             for k in range(cells):              # k = 0 at the base
-                r = top_row + height - 1 - k
+                r = top_row + area_h - 1 - k
                 look = faded(sty, FADE[min(cells - 1 - k, len(FADE) - 1)])
                 if part and k == full:
                     put(r, x, EIGHTHS[part], look)
                 else:
                     put(r, x, "█", look)
                     fill[(r, x)] = look
-            edge[x] = top_row + height - cells
+            edge[x] = top_row + area_h - cells
         # guides across the chart: over the area's full cells, dotted where there is none
         for value, gstyle in guides:
             if value is None or not lo < value <= hi:
@@ -462,9 +468,37 @@ def area_chart(values, width, height, lo=None, hi=None, style="value", tops=None
             if not text or i >= n or values[i] is None:
                 continue
             c = max(gutter, min(center(i) - (len(text) - 1) // 2, gutter + plot_w - len(text)))
-            r = min(edge.get(c + k, top_row + height) for k in range(len(text))) - 1
+            r = min(edge.get(c + k, top_row + area_h) for k in range(len(text))) - 1
             if r >= 0 and free(r, c, len(text)):
                 put(r, c, text, style_at(i, values[i]))
+        # the band's bars, standing on the base, each one's text just over it
+        if band and bars:
+            bar_rows = band - 1 if band > 1 else band
+            foot = top_row + height
+            bw = max(1, min(int(plot_w / n) - 1, int(round(plot_w / n * 0.6))))
+            for i, frac, sty, text in bars:
+                if i is None or i >= n or not frac or frac <= 0:
+                    continue
+                c = center(i) - (bw - 1) // 2
+                if asc:
+                    cells = max(1, int(round(min(1.0, frac) * bar_rows)))
+                    for k in range(cells):
+                        put(foot - 1 - k, c, "#" * bw, sty)
+                else:
+                    eighths = max(1, int(round(min(1.0, frac) * bar_rows * 8)))
+                    full, part = divmod(eighths, 8)
+                    for k in range(full):
+                        put(foot - 1 - k, c, "█" * bw, sty)
+                    if part:
+                        put(foot - 1 - full, c, EIGHTHS[part] * bw, sty)
+                    cells = full + (1 if part else 0)
+                if not text:
+                    continue
+                r = foot - 1 - cells
+                tc = max(gutter, min(center(i) - (len(text) - 1) // 2, gutter + plot_w - len(text)))
+                lo_c, hi_c = max(gutter, tc - 1), min(width, tc + len(text) + 1)      # a space either side
+                if r >= top_row + area_h and free(r, lo_c, hi_c - lo_c):
+                    put(r, tc, text, sty)
     # the scale down the left side, and the title (unless the picture has the gutter too)
     if axis and start > 0:
         for r in range(top_row, rows):

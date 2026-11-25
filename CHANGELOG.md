@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.15.0
+
+* The Now screen's Next 12 hours is one chart instead of two, three rows
+  shorter: the temperature along the top and, under it, a bar for each hour
+  precipitation may fall, as tall as its chance, with the chance over it.
+* The bars are colored by what falls, as on weather radar: rain in shades of
+  green from light to heavy, thunderstorms gold, snow white, sleet pink,
+  freezing rain magenta and a wintry mix violet. The key under the chart, now
+  called Precipitation, names the kinds in the next 12 hours.
+* A forecast of "Wintry Mix" gets the wintry mix icon.
+
 ## 3.14.0
 
 skydrop now runs on macOS and Windows as well as Linux.

@@ -736,14 +736,17 @@ AREA_LINE = 0.2                         # the line along the top: its color, thi
 
 
 def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, tops=(), guides=(), axis=(),
-               axis_ink=((150, 150, 150), (90, 90, 90))):
+               axis_ink=((150, 150, 150), (90, 90, 90)), band=0, bars=()):
     """An area chart as a picture `w` x `h` pixels, `cols` x `rows` cells: a smooth curve through
     the values (each at the middle of its share of the width), the area under it shaded
     from just below the curve to darker at the base, a crisp line along the top. `color(p,
     value)` is the color where the curve is at position p (in values, fractional) and that
     value. `head` rows over the plot are kept for each value's text, `tops` [(i, text, rgb)],
     set over the curve; `guides` [(value, rgb)] run across dashed; `left` cells on the left
-    hold the scale, `axis` [(value, text)], in axis_ink (text, line)."""
+    hold the scale, `axis` [(value, text)], in axis_ink (text, line). `band` rows at the
+    foot hold a bar for some of the values, `bars` [(i, fraction, rgb, text)]: each as tall
+    as its fraction of the band (less a line for its text, set over it), in its color with
+    a darker rim; the area stands on the band, its shade fading out before it."""
     bg = tuple(bg)
     img = gfx.Image.new("RGB", (w, h), bg)
     n = len(values)
@@ -755,7 +758,9 @@ def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, 
     pw = w - x0
     lw = max(1.5, min(3.0, cell_h * 0.11))     # the line's width
     top = int(round(head * cell_h)) + int(math.ceil(lw / 2)) + 1   # the line at the top stays whole
-    ph = h - top
+    base = h - int(round(band * cell_h)) if band else h      # the area's floor
+    base = max(top + 4, base)
+    ph = base - top
     span = (hi - lo) or 1.0
 
     def X(p):
@@ -770,12 +775,17 @@ def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, 
     xs = [x0 + k * 0.5 for k in range(0, 2 * pw + 1)]
     pts = [(x * S, Y(curve(x)) * S) for x in xs]
     shape = gfx.Image.new("L", (Ws, Hs), 0)
-    gfx.ImageDraw.Draw(shape).polygon([(x0 * S, Hs)] + pts + [(Ws, Hs)], fill=255)
+    gfx.ImageDraw.Draw(shape).polygon([(x0 * S, base * S)] + pts + [(Ws, base * S)], fill=255)
     shape = shape.resize((w, h), gfx.BOX)
-    # the shade: strongest at the top of the plot, fading toward the base
+    # the shade: strongest at the top of the plot, fading toward the base (over a band of
+    # bars, fading out altogether, so the area floats over them)
     strip = gfx.Image.new("L", (1, h))
-    strip.putdata([int(255 * (AREA_TOP - (AREA_TOP - AREA_BASE) * max(0.0, min(1.0, (y - top) / max(1.0, ph)))))
-                   for y in range(h)])
+    if band:
+        strip.putdata([int(255 * AREA_TOP * (1.0 - max(0.0, min(1.0, (y - top) / max(1.0, ph)))) ** 1.4)
+                       for y in range(h)])
+    else:
+        strip.putdata([int(255 * (AREA_TOP - (AREA_TOP - AREA_BASE) * max(0.0, min(1.0, (y - top) / max(1.0, ph)))))
+                       for y in range(h)])
     mask = gfx.ImageChops.multiply(shape, strip.resize((w, h), gfx.NEAREST))
     # the colors, column by column, where the curve is: blended a little either side of
     # where one gives way to the next
@@ -853,6 +863,57 @@ def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, 
             continue
         taken.append(box)
         gfx.draw_text(d, (x + dx, y + dy), text, bold, tuple(rgb), anchor="md", stroke=1, stroke_fill=bg)
+    if band and bars:
+        img = _band_bars(img, bars, n, x0, pw, base, cell_h, bg)
+    return img
+
+
+def _band_bars(img, bars, n, x0, pw, base, cell_h, bg):
+    """The bars in the band under an area chart (area_image's `bars`): rounded at the top,
+    each in its color with a darker rim, its text over it in a smaller type."""
+    w, h = img.size
+    lab = cell_h * 0.62                         # a line over the tallest bar for its text
+    room = max(2.0, h - base - lab)
+    step = pw / max(1, n)
+    bw = max(2.0, min(step * 0.6, step - 2.0))
+    rim_w = max(1.0, cell_h / 16)
+    radius = min(bw * 0.3, cell_h * 0.3)
+    light = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2] > 140
+    # drawn 4x over (from the band's top down) and shrunk: smooth corners
+    S = 4
+    y0 = max(0, int(base) - 1)
+    strip = img.crop((0, y0, w, h)).resize((w * S, (h - y0) * S), gfx.NEAREST)
+    d = gfx.ImageDraw.Draw(strip)
+    tags = []
+    for i, frac, rgb, text in bars:
+        if i is None or i >= n or not frac or frac <= 0:
+            continue
+        rgb = tuple(rgb[:3])
+        cx = x0 + (i + 0.5) * step
+        hh = max(rim_w * 3, min(1.0, frac) * room)
+        xa, xb, ya = cx - bw / 2, cx + bw / 2, h - hh
+        rim = blend(rgb, (0, 0, 0), 0.45)
+        box = [xa * S, (ya - y0) * S, xb * S, (h - y0 + radius) * S]     # rounded at the top only
+        try:
+            d.rounded_rectangle(box, radius=radius * S, fill=rgb, outline=rim, width=max(1, int(round(rim_w * S))))
+        except AttributeError:                  # Pillow before 8.2
+            d.rectangle(box, fill=rgb, outline=rim, width=max(1, int(round(rim_w * S))))
+        if text:
+            tags.append((cx, ya, text, rim if light else rgb))
+    img.paste(strip.resize((w, h - y0), gfx.BOX), (0, y0))
+    if tags:
+        d = gfx.ImageDraw.Draw(img)
+        small = gfx.font(cell_h * 0.5, bold=True)
+        taken = []
+        for cx, ya, text, ink in tags:
+            tw = gfx.text_width(d, text, small)
+            x = max(x0 + tw / 2 + 1, min(w - tw / 2 - 1, cx))
+            box = (x - tw / 2 - 2, ya - cell_h * 0.6, x + tw / 2 + 2, ya)
+            if any(box[0] < b[2] and b[0] < box[2] for b in taken):
+                continue                        # kept off its neighbor's
+            taken.append(box)
+            gfx.draw_text(d, (x, ya - max(1.0, cell_h * 0.08)), text, small, ink, anchor="md", stroke=1,
+                          stroke_fill=bg)
     return img
 
 

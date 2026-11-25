@@ -15,11 +15,11 @@ import re
 import textwrap
 import time
 
-from . import gfx, icons, statemap, ui
+from . import gfx, icons, precip, statemap, ui
 from .charts import (area_image, columns_image, daily_chart, daily_text, daylight_image, hourly_chart,
                      hourly_text, range_image)
 from .columns import area_chart, bar_chart, column_chart, layout
-from .crt import meter_block, meter_spans
+from .crt import METER, meter_block, meter_spans
 from .fmt import wind_text
 from .text import (block, card, seglen, fit_columns, kv_grid, labeled_wrap, padto, restyle, spark,
                    table_header, table_row, table_width, unit_cols, wrap, clip)
@@ -165,14 +165,17 @@ def area(v, slot, values, width, height, **kw):
     scale = [(value, text) for value, text in axis]
     ink = (th.spec("dim")[0], th.spec("faint")[0])
     back = th.rgb("card_bg")
+    band = kw.get("band") or 0
+    bars = [(i, frac, th.spec(bs)[0], text) for i, frac, bs, text in kw.get("bars") or ()] if band else []
     key = (f"area:{slot}:{th.name}:{back}:{cols}x{rows}:{start}:{gutter}:"
-           f"{hash((tuple(values), lo, hi, tuple(marks), tuple(lines), tuple(scale)))}")
+           f"{hash((tuple(values), lo, hi, tuple(marks), tuple(lines), tuple(scale), band, tuple(bars)))}")
 
     def build(mode, pw, ph):
         if mode != "pixels":
             return None
         return area_image(values, lo, hi, pw, ph, back, paint, cols=cols, rows=rows, head=head,
-                          left=gutter if axis else 0, tops=marks, guides=lines, axis=scale, axis_ink=ink)
+                          left=gutter if axis else 0, tops=marks, guides=lines, axis=scale, axis_ink=ink,
+                          band=band, bars=bars)
     # a slot of its own for each size: a screen that tries a few sizes keeps the one it shows
     plot = v.images.block(f"{slot}{cols}x{rows}", key, cols, rows, build, back=back)
     return area_chart(values, width, height, plot=plot, plot_from=start, **kw)
@@ -225,9 +228,12 @@ def columns(v, slot, values, width, height, **kw):
 
 
 def next_hours(m, F, width, hours=12, v=None):
-    """The next 12 hours as area charts: the temperature, and under it the chance of rain,
-    the hours along the bottom; when no rain is expected, a line saying so. Given the
-    view, pictures where the terminal draws them."""
+    """The next 12 hours in one chart: the temperature as an area along the top, and under
+    it a bar for each hour precipitation may fall, as tall as its chance and colored by
+    what falls, as on weather radar (rain in greens, light to heavy; storms gold; snow
+    white; sleet pink; freezing rain magenta; a wintry mix violet); the hours along the
+    bottom and a key under them, or a line saying none is expected. Given the view,
+    pictures where the terminal draws them."""
     now = time.time()
     rows = [r for r in m.get("hourly") or [] if r.get("t") is not None and r["t"] + 3600 > now][:hours]
     temps = [F.tv(r.get("temp")) for r in rows]
@@ -238,25 +244,19 @@ def next_hours(m, F, width, hours=12, v=None):
     slot, _body = layout(len(rows), w - CHART_GUTTER)
     labels = ui.time_labels([r["t"] for r in rows], F, slot, now, room=5)
     pops = [r.get("pop") if (r.get("pop") or 0) >= 5 else None for r in rows]
+    kinds = [precip.hour_type(r) if p is not None else None for r, p in zip(rows, pops)]
     wet = any(p is not None for p in pops)
+    bars = [(i, min(100.0, p) / 100.0, precip.style_of(k), f"{p:.0f}%")
+            for i, (p, k) in enumerate(zip(pops, kinds)) if p is not None]
     # the coolest hour still lights a segment or two, and a flat day stays flat
     t_hi = max(tv)
     span = max(t_hi - min(tv), 8.0 if F.imp else 5.0)
-    out = area(v, "areaTemp", temps, w, 5, lo=t_hi - span * 1.25, hi=t_hi,
+    out = area(v, "areaNext", temps, w, 6 if wet else 5, lo=t_hi - span * 1.25, hi=t_hi,
                style=lambda x: temp_style(native_temp(F, x)),
                tops=[F.t(r.get("temp")) if r.get("temp") is not None else "" for r in rows],
-               gutter=CHART_GUTTER, title="Temp", base=not wet, labels=None if wet else labels)
-    snowy = [r.get("kind") in SNOWY for r, p in zip(rows, pops) if p is not None]
-    if not wet:
-        out.append([("Rain".ljust(CHART_GUTTER), "label"), ("None expected in the next 12 hours", "dim")])
-        return indented(out)
-    word = "Snow" if all(snowy) else "Precip" if any(snowy) else "Rain"
-    out += area(v, "areaRain", [p or 0 for p in pops], w, 4, lo=0, hi=100,
-                style=["snow" if r.get("kind") in SNOWY else "rain" for r in rows],
-                tops=[f"{p:.0f}%" if p is not None else "" for p in pops],
-                gutter=CHART_GUTTER, title=word, labels=labels)
+               gutter=CHART_GUTTER, title="Temp", labels=labels, band=3 if wet else 0, bars=bars)
+    out.append(precip.legend(kinds, w, ascii_only=METER["ascii"]))
     return indented(out)
-
 
 def runin(label, text, width, indent=2, hang=4):
     """'Tonight  Mostly cloudy, with ...' wrapped with a hanging indent: the label takes no column."""

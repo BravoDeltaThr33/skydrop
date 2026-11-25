@@ -174,37 +174,72 @@ class TestNowCharts(MeterState):
         return [{"t": self.h0 + i * 3600, "temp": 10 + i * 0.5, "pop": p, "kind": (kinds or {}).get(i, "rain")}
                 for i, p in enumerate(pops)]
 
-    def test_twelve_hours_temperature_and_rain(self):
+    def test_twelve_hours_temperature_and_precipitation_in_one_chart(self):
         m = {"hourly": self.hourly([0, 0, 20, 60, 90, 40, 0, 0, 0, 0, 0, 0, 0, 0])}
-        rows = text(SC.next_hours(m, self.F, 109))
+        lines = SC.next_hours(m, self.F, 109)
+        rows = text(lines)
         joined = "\n".join(rows)
         self.assertIn("Temp", joined)
-        self.assertIn("Rain", joined)
+        self.assertIn("Precipitation", rows[-1])                  # the key under the chart
+        self.assertNotIn("Rain ", [r[2:7] for r in rows])         # no second chart titled Rain
         self.assertIn("90%", joined)
-        self.assertIn("Now", rows[-1])
-        self.assertEqual(sum(1 for r in rows if "─" in r), 1)     # one base line, shared
+        self.assertIn("Now", rows[-2])
+        self.assertEqual(sum(1 for r in rows if "─" in r), 1)     # one base line
+        self.assertEqual(len(rows), 10)                           # 13 rows as two charts
         for r in rows:
             self.assertLessEqual(len(r), 109)
+        # the bars stand under the temperature's area, in the rows the area leaves them
+        bar_rows = [i for i, ln in enumerate(lines) if any(st == "p_rain2" and t.strip("▁▂▃▄▅▆▇█") == ""
+                                                         and t.strip() for t, st in ln)]
+        area_rows = [i for i, ln in enumerate(lines) if any(isinstance(st, tuple) and st[0] == "fade" for _t, st in ln)]
+        self.assertTrue(bar_rows and area_rows)
+        self.assertGreater(min(bar_rows), max(area_rows))
 
     def test_dry_hours_say_so(self):
         m = {"hourly": self.hourly([0] * 14)}
         rows = text(SC.next_hours(m, self.F, 100))
+        self.assertIn("Precipitation", rows[-1])
         self.assertIn("None expected in the next 12 hours", rows[-1])
         self.assertIn("Now", rows[-2])
+        self.assertEqual(len(rows), 9)                            # the area alone: a row shorter
+
+    def test_each_type_its_color(self):
+        kinds = {0: "drizzle", 1: "rain", 2: "heavy_rain", 3: "thunder", 4: "sleet", 5: "freezing", 6: "mix",
+                 7: "flurries", 8: "snow"}
+        m = {"hourly": self.hourly([60] * 14, kinds)}
+        lines = SC.next_hours(m, self.F, 120)
+        drawn = set(styles(lines, "█"))
+        self.assertTrue({"p_rain1", "p_rain2", "p_rain3", "p_storm", "p_sleet", "p_ice", "p_mix", "p_snow1",
+                         "p_snow2"} <= drawn, drawn)
+        key = text(SC.next_hours(m, self.F, 160))[-1]
+        for name in ("Light rain", "Heavy rain", "Storms", "Sleet", "Freezing rain", "Wintry mix", "Light snow"):
+            self.assertIn(name, key)
+        key = text(lines)[-1]                                     # narrower: each type named once
+        self.assertNotIn("Light rain", key)
+        for name in ("Rain", "Storms", "Sleet", "Freezing rain", "Wintry mix", "Snow"):
+            self.assertIn(name, key)
+        self.assertLessEqual(len(key), 120)
 
     def test_snow_hours(self):
         m = {"hourly": self.hourly([50] * 14, {i: "snow" for i in range(14)})}
         lines = SC.next_hours(m, self.F, 100)
-        self.assertIn("Snow", "\n".join(text(lines)))
-        self.assertIn("snow", area_styles(lines))
-        m = {"hourly": self.hourly([50] * 14, {3: "snow"})}
-        self.assertIn("Precip", "\n".join(text(SC.next_hours(m, self.F, 100))))
+        self.assertIn("Snow", text(lines)[-1])
+        self.assertIn("p_snow2", styles(lines, "█"))
+        self.assertNotIn("Rain", text(lines)[-1])
 
     def test_old_hours_are_skipped(self):
         rows = self.hourly([0] * 14)
         rows = [dict(r, t=r["t"] - 3 * 3600) for r in rows]
         lines = SC.next_hours({"hourly": rows}, self.F, 100)
         self.assertEqual(text(lines)[-2].split().count("Now"), 1)
+
+    def test_plain_characters(self):
+        METER.update({"ascii": True})
+        m = {"hourly": self.hourly([0, 30, 60, 90] + [0] * 10)}
+        rows = text(SC.next_hours(m, self.F, 100))
+        self.assertTrue(all(ch.isascii() or ch == "°" for r in rows for ch in r), rows)
+        self.assertIn("#", rows[-1])                              # the key's swatches
+        self.assertIn("90%", "\n".join(rows))
 
     def test_temperatures_in_their_colors(self):
         m = {"hourly": [{"t": self.h0 + i * 3600, "temp": t, "pop": 0} for i, t in enumerate([-10, 0, 10, 20, 30, 40])]}

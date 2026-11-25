@@ -6,7 +6,8 @@
 It runs the real app, with live data for the ZIP code (Dallas, TX by default), inside a
 test terminal (tests/harness.py, tests/gfxharness.py) that understands kitty and sixel
 pictures, and saves each view as a PNG plus an index.png contact sheet and a README.txt.
-The warnings-map picture shows a made-up severe weather day, and says so.
+The warnings-map picture shows a made-up severe weather day, and now-precipitation
+made-up hours of rain turning to ice and snow; both say so.
 
 Needs Linux with Pillow, pyte and the DejaVu Sans Mono font (fonts-dejavu-core).
 """
@@ -25,6 +26,7 @@ from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 from gfxharness import GfxTerm  # noqa: E402
 from harness import run_app  # noqa: E402
+from skydrop import icons  # noqa: E402
 
 SCREENS = [("1", "now", "Now"), ("2", "hourly", "Hourly"), ("3", "ten-day", "10-Day"), ("4", "radar", "Radar"),
            ("5", "stations", "Stations"), ("6", "alerts", "Alerts"), ("7", "air", "Air & UV"),
@@ -65,6 +67,38 @@ def simulate_outbreak(app, term):
         {"key": "demo.ff.a", "event": "Flood Watch", "rank": 10, "rgb": (46, 139, 87), "same": same(near[70:95]), "ugc": []},
     ]
     app.cache.clear()
+    return []
+
+
+# made-up next 12 hours for the precipitation picture: rain turning to ice, then snow
+DEMO_HOURS = [(4.0, 10, "Mostly Cloudy"), (3.2, 20, "Chance Light Rain"), (2.5, 40, "Chance Rain"),
+              (1.8, 60, "Rain Likely"), (1.0, 80, "Rain"), (0.4, 90, "Rain And Sleet"), (0.0, 85, "Freezing Rain"),
+              (-0.6, 80, "Freezing Rain"), (-1.2, 70, "Wintry Mix"), (-1.8, 60, "Snow"), (-2.3, 50, "Snow"),
+              (-2.6, 35, "Light Snow"), (-2.8, 20, "Chance Light Snow")]
+
+
+KEPT = {}
+
+
+def simulate_precipitation(app, term):
+    """Make the next 12 hours rain, then sleet and freezing rain, then snow, as it cools
+    (restore_hours puts the real ones back)."""
+    import copy
+    import time
+    KEPT["hourly"] = copy.deepcopy(app.model.get("hourly") or [])
+    now = time.time()
+    hours = [r for r in app.model.get("hourly") or [] if r.get("t") and r["t"] + 3600 > now]
+    for r, (temp, pop, words) in zip(hours, DEMO_HOURS):
+        r.update(temp=temp, pop=pop, nws_desc=words, desc=words, kind=icons.from_text(words))
+        r.pop("wmo", None)
+    app.cache.clear()
+    return []
+
+
+def restore_hours(app, term):
+    if "hourly" in KEPT:
+        app.model["hourly"] = KEPT.pop("hourly")
+        app.cache.clear()
     return []
 
 
@@ -151,6 +185,10 @@ def main():
         script.append((1.5, simulate_outbreak))
         snap("warnings-map", "Alerts: warnings map (simulated outbreak)", 1.0)
     press("1")
+    if "demo" in groups:
+        script.append((0.5, simulate_precipitation))
+        snap("now-precipitation", "Now: rain turning to ice and snow (simulated)", 2.5)
+        script.append((0.3, restore_hours))
     if "themes" in groups:
         for theme in ("midnight", "retro8s", "star4000", "magnetic"):
             script.append((0.3, change({"theme": theme})))
@@ -195,7 +233,8 @@ def main():
         fh.write("skydrop screenshots\n\nLive weather for ZIP code %s, taken in a test terminal that draws the\n"
                  "pictures the way kitty and Ghostty do (the mode- pictures show the other drawing modes).\n"
                  "warnings-map.png shows a made-up severe weather day: the watches and warnings\n"
-                 "in it are simulated.\n\n" % args.zip)
+                 "in it are simulated. now-precipitation.png shows made-up hours of rain turning\n"
+                 "to ice and snow, to show the Next 12 hours chart's colors.\n\n" % args.zip)
         for name in names:
             fh.write(f"{name}.png  {labels[name]}\n")
         fh.write("index.png  all of them on one sheet\n")

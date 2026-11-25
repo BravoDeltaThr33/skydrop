@@ -119,6 +119,9 @@ PALETTES = {
         "map_top": (34, 80, 136), "map_bot": (48, 102, 162), "map_water": (26, 64, 122),
         "map_county": (122, 160, 204), "map_road": (150, 78, 60), "map_state": (246, 248, 255),
         "map_glow": (190, 214, 246), "map_tint": (120, 150, 182),
+        "p_rain1": (44, 136, 44), "p_rain2": (8, 112, 40), "p_rain3": (0, 84, 30), "p_storm": (178, 106, 0),
+        "p_snow1": (98, 120, 162), "p_snow2": (70, 94, 142), "p_snow3": (44, 66, 116),
+        "p_sleet": (184, 50, 130), "p_ice": (156, 12, 112), "p_mix": (104, 60, 180),
     },
 }
 
@@ -140,6 +143,11 @@ DERIVED = {
     "map_top": (7, 14, 58), "map_bot": (16, 32, 104), "map_water": (30, 56, 150), "map_county": (78, 104, 186),
     "map_road": (176, 62, 80), "map_state": (214, 222, 250), "map_glow": (110, 130, 230),
     "map_tint": (120, 130, 175),
+    # precipitation by type, in weather radar's colors: rain in greens (light to heavy),
+    # thunderstorms gold, snow white, sleet pink, freezing rain magenta, a wintry mix violet
+    "p_rain1": (150, 232, 140), "p_rain2": (64, 206, 92), "p_rain3": (0, 168, 64), "p_storm": (255, 200, 48),
+    "p_snow1": (184, 200, 226), "p_snow2": (232, 238, 252), "p_snow3": (255, 255, 255),
+    "p_sleet": (255, 156, 216), "p_ice": (240, 84, 204), "p_mix": (182, 146, 255),
 }
 
 # what each theme is, for Settings and --help
@@ -231,6 +239,16 @@ STYLE_SPECS = {
     "aqi4": ("aqi4", "bg", "b", 9, 4, "b"),
     "aqi5": ("aqi5", "bg", "b", 13, 4, "b"),
     "aqi6": ("aqi6", "bg", "b", 5, 4, "b"),
+    "p_rain1": ("p_rain1", "bg", "b", 10, 4, "b"),
+    "p_rain2": ("p_rain2", "bg", "b", 10, 4, "b"),
+    "p_rain3": ("p_rain3", "bg", "b", 2, 4, "b"),
+    "p_storm": ("p_storm", "bg", "b", 11, 4, "b"),
+    "p_snow1": ("p_snow1", "bg", "", 7, 4, ""),
+    "p_snow2": ("p_snow2", "bg", "b", 15, 4, "b"),
+    "p_snow3": ("p_snow3", "bg", "b", 15, 4, "b"),
+    "p_sleet": ("p_sleet", "bg", "b", 13, 4, "b"),
+    "p_ice": ("p_ice", "bg", "b", 5, 4, "b"),
+    "p_mix": ("p_mix", "bg", "b", 12, 4, "b"),
 }
 
 # Approximation of the standard 16-color palette, for RGB -> 16 mapping.

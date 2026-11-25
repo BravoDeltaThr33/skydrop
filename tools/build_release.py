@@ -102,7 +102,9 @@ def windows_entries(top):
 
 
 def write_tar(path, entries, mtime):
-    with tarfile.open(path, "w:gz", format=tarfile.PAX_FORMAT) as tar:
+    # the gzip header carries a time too: the release's, so the same tree builds the same file
+    with open(path, "wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=int(mtime)) as gz, \
+            tarfile.open(fileobj=gz, mode="w", format=tarfile.PAX_FORMAT) as tar:
         made = set()
         for name, data, mode in entries:
             parts = name.split("/")

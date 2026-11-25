@@ -24,7 +24,7 @@ def from_text(text):
         return "freezing" if "fog" not in t or "rain" in t or "drizzle" in t else "fog"
     if "sleet" in t:
         return "sleet"
-    if "snow" in t and ("rain" in t or "wintry" in t):
+    if "snow" in t and ("rain" in t or "wintry" in t) or "wintry mix" in t:
         return "mix"
     if "blizzard" in t or "heavy snow" in t:
         return "snow"
