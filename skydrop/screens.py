@@ -23,7 +23,7 @@ from .crt import METER, meter_block, meter_spans
 from .fmt import wind_text
 from .text import (block, card, seglen, fit_columns, kv_grid, labeled_wrap, padto, restyle, spark,
                    table_header, table_row, table_width, unit_cols, wrap, clip)
-from .theme import blend, ink_on, pop_style, temp_style, wind_style
+from .theme import HUMIDITY_STYLES, blend, humidity_style, ink_on, pop_style, temp_style, wind_style
 from .util import cap, first, iso_epoch, sum_opt
 from .wxmath import (LIGHTNING_LAL, OWM_AQI, OWM_AQI_STYLE, SYNODIC, aqi_cat, beaufort, comfort, compass,
                      grid_weather_text, hazard_text, heatrisk_label, moon_info, moon_name, next_moon_phases,
@@ -167,15 +167,33 @@ def area(v, slot, values, width, height, **kw):
     back = th.rgb("card_bg")
     band = kw.get("band") or 0
     bars = [(i, frac, th.spec(bs)[0], text) for i, frac, bs, text in kw.get("bars") or ()] if band else []
+    # a second series as a line over the area: its colors along the styles given for its
+    # scale, blended between neighbors
+    line = tuple(kw.get("line") or ())
+    line_scale = tuple(kw.get("line_scale") or (0.0, 100.0))
+    ramp = [th.spec(s)[0] for s in kw.get("line_styles") or ()]
+    line_color = None
+    if ramp and sum(1 for x in line if x is not None) >= 2:
+        l_lo, l_hi = line_scale
+
+        def line_color(value):
+            if len(ramp) == 1:
+                return ramp[0]
+            p = max(0.0, min(1.0, (value - l_lo) / ((l_hi - l_lo) or 1.0))) * (len(ramp) - 1)
+            i = min(len(ramp) - 2, int(p))
+            return blend(ramp[i], ramp[i + 1], p - i)
+    else:
+        line = ()
     key = (f"area:{slot}:{th.name}:{back}:{cols}x{rows}:{start}:{gutter}:"
-           f"{hash((tuple(values), lo, hi, tuple(marks), tuple(lines), tuple(scale), band, tuple(bars)))}")
+           f"{hash((tuple(values), lo, hi, tuple(marks), tuple(lines), tuple(scale), band, tuple(bars)))}:"
+           f"{hash((line, line_scale, tuple(ramp)))}")
 
     def build(mode, pw, ph):
         if mode != "pixels":
             return None
         return area_image(values, lo, hi, pw, ph, back, paint, cols=cols, rows=rows, head=head,
                           left=gutter if axis else 0, tops=marks, guides=lines, axis=scale, axis_ink=ink,
-                          band=band, bars=bars)
+                          band=band, bars=bars, line=line, line_scale=line_scale, line_color=line_color)
     # a slot of its own for each size: a screen that tries a few sizes keeps the one it shows
     plot = v.images.block(f"{slot}{cols}x{rows}", key, cols, rows, build, back=back)
     return area_chart(values, width, height, plot=plot, plot_from=start, **kw)
@@ -228,12 +246,14 @@ def columns(v, slot, values, width, height, **kw):
 
 
 def next_hours(m, F, width, hours=12, v=None):
-    """The next 12 hours in one chart: the temperature as an area along the top, and under
-    it a bar for each hour precipitation may fall, as tall as its chance and colored by
-    what falls, as on weather radar (rain in greens, light to heavy; storms gold; snow
-    white; sleet pink; freezing rain magenta; a wintry mix violet); the hours along the
-    bottom and a key under them, or a line saying none is expected. Given the view,
-    pictures where the terminal draws them."""
+    """The next 12 hours in one chart: the temperature as an area along the top, the
+    humidity as a line over it (0% at the area's foot, 100% at its top) colored along the
+    whole spectrum, red for the driest air to violet for the most humid, and under them a
+    bar for each hour precipitation may fall, as tall as its chance and colored by what
+    falls, as on weather radar (rain in greens, light to heavy; storms gold; snow white;
+    sleet pink; freezing rain magenta; a wintry mix violet); the hours along the bottom
+    and a key under them for the humidity and the precipitation, or a line saying none is
+    expected. Given the view, pictures where the terminal draws them."""
     now = time.time()
     rows = [r for r in m.get("hourly") or [] if r.get("t") is not None and r["t"] + 3600 > now][:hours]
     temps = [F.tv(r.get("temp")) for r in rows]
@@ -248,15 +268,50 @@ def next_hours(m, F, width, hours=12, v=None):
     wet = any(p is not None for p in pops)
     bars = [(i, min(100.0, p) / 100.0, precip.style_of(k), f"{p:.0f}%")
             for i, (p, k) in enumerate(zip(pops, kinds)) if p is not None]
+    hums = [r.get("hum") for r in rows]
+    humid = sum(1 for x in hums if x is not None) >= 2
     # the coolest hour still lights a segment or two, and a flat day stays flat
     t_hi = max(tv)
     span = max(t_hi - min(tv), 8.0 if F.imp else 5.0)
     out = area(v, "areaNext", temps, w, 6 if wet else 5, lo=t_hi - span * 1.25, hi=t_hi,
                style=lambda x: temp_style(native_temp(F, x)),
                tops=[F.t(r.get("temp")) if r.get("temp") is not None else "" for r in rows],
-               gutter=CHART_GUTTER, title="Temp", labels=labels, band=3 if wet else 0, bars=bars)
+               gutter=CHART_GUTTER, title="Temp", labels=labels, band=3 if wet else 0, bars=bars,
+               line=hums if humid else (), line_scale=(0.0, 100.0), line_styles=HUMIDITY_STYLES)
+    if humid:
+        out.append(humidity_key(hums, w, ascii_only=METER["ascii"]))
     out.append(precip.legend(kinds, w, ascii_only=METER["ascii"]))
     return indented(out)
+
+
+def humidity_key(hums, width, ascii_only=False):
+    """The humidity line's key: 'Humidity', the spectrum from 0% to 100% drawn as a short
+    line in its colors, and the lowest and highest humidity in the next 12 hours, each in
+    its color; the words, then the range, then half the line left out where there's no
+    room."""
+    head = [("Humidity       ", "label")]       # lined up with the Precipitation key's
+    vals = [x for x in hums if x is not None]
+    if not vals:
+        return head + [("--", "dim")]
+    stroke = "=" if ascii_only else "━"
+
+    def scale(k):
+        last = len(HUMIDITY_STYLES) - 1
+        return ([("0% ", "dim")] + [(stroke, HUMIDITY_STYLES[int(round(j * last / (k - 1)))]) for j in range(k)]
+                + [(" 100%", "dim")])
+    lo, hi = min(vals), max(vals)
+    if f"{lo:.0f}" == f"{hi:.0f}":
+        span = [(f"{lo:.0f}%", humidity_style(lo))]
+        words = " through the next 12 hours"
+    else:
+        span = [(f"{lo:.0f}%", humidity_style(lo)), (" to ", "text"), (f"{hi:.0f}%", humidity_style(hi))]
+        words = " in the next 12 hours"
+    gap = [("   ", "text")]
+    for body in (scale(11) + gap + span + [(words, "text")], scale(11) + gap + span, scale(6) + gap + span, scale(6)):
+        if seglen(head + body) <= width:
+            return head + body
+    return clip(head + scale(6), width)
+
 
 def runin(label, text, width, indent=2, hang=4):
     """'Tonight  Mostly cloudy, with ...' wrapped with a hanging indent: the label takes no column."""

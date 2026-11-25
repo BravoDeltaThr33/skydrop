@@ -257,6 +257,15 @@ ANSI16 = [(0, 0, 0), (170, 0, 0), (0, 170, 0), (170, 110, 0), (0, 0, 170), (170,
           (255, 255, 85), (85, 85, 255), (255, 85, 255), (85, 255, 255), (255, 255, 255)]
 
 
+# relative humidity along the whole spectrum (the Now screen's humidity line): red for the
+# driest air, then orange, yellow, green, cyan and blue, to violet for the most humid
+HUMIDITY_STOPS = ((0.0, (255, 54, 54)), (100 / 6, (255, 140, 0)), (200 / 6, (255, 228, 0)),
+                  (50.0, (48, 220, 72)), (400 / 6, (0, 212, 232)), (500 / 6, (64, 132, 255)),
+                  (100.0, (192, 96, 255)))
+# a style for every 5%, rh0 (0%) to rh20 (100%), each made to stand out on the theme's cards
+HUMIDITY_STYLES = tuple(f"rh{k}" for k in range(21))
+
+
 def theme_name(name):
     """A theme name that exists: old names map to their replacement, unknown ones to the default."""
     name = RENAMED.get(name, name)
@@ -332,6 +341,12 @@ class Theme:
             if bg is not None and bgr == "bg":
                 b16 = rgb_to_16(bg)          # the 16-color page follows it too
             self.styles[sname] = (self.pal[fg], self.pal[bgr], attrs, f16, b16, a16)
+        # relative humidity's colors, every 5%, each made to stand out on this theme's cards
+        # and its page
+        page16 = self.styles["text"][4]
+        for k, sname in enumerate(HUMIDITY_STYLES):
+            rgb = humidity_rgb(k * 100.0 / (len(HUMIDITY_STYLES) - 1), self.pal["card_bg"], self.pal["bg"])
+            self.styles[sname] = (rgb, self.pal["bg"], "b", rgb_to_16(rgb), page16, "b")
 
     def flatten(self, flat):
         """CRT mode: a tube's glass has no panels, so cards and table stripes take the page's
@@ -460,6 +475,34 @@ def contrast(a, b):
 def blend(a, b, t):
     """Linear blend of two RGB tuples."""
     return (int(a[0] + (b[0] - a[0]) * t), int(a[1] + (b[1] - a[1]) * t), int(a[2] + (b[2] - a[2]) * t))
+
+
+def humidity_rgb(rh, *backs):
+    """The color of a relative humidity (%) along the spectrum: red for the driest air, then
+    orange, yellow, green, cyan and blue, to violet for the most humid. Given the colors
+    it's drawn on (a card, the page), a color that wouldn't stand out from each of them (a
+    contrast under 3) is made lighter on dark ones, darker on light ones."""
+    rh = max(0.0, min(100.0, float(rh)))
+    rgb = HUMIDITY_STOPS[-1][1]
+    for (h0, c0), (h1, c1) in zip(HUMIDITY_STOPS, HUMIDITY_STOPS[1:]):
+        if rh <= h1:
+            rgb = blend(c0, c1, (rh - h0) / (h1 - h0))
+            break
+    if not backs:
+        return rgb
+    toward = (0, 0, 0) if luminance(backs[0]) > 0.18 else (255, 255, 255)
+    out, t = rgb, 0.0
+    while min(contrast(out, b) for b in backs) < 3.0 and t < 1.0:
+        t = min(1.0, t + 0.05)
+        out = blend(rgb, toward, t)
+    return out
+
+
+def humidity_style(rh):
+    """The style for a relative humidity (%): its color along the spectrum, to the nearest 5%."""
+    if rh is None:
+        return "dim"
+    return HUMIDITY_STYLES[int(round(max(0.0, min(100.0, float(rh))) / 5.0))]
 
 
 # ----------------------------------------------------------------------------

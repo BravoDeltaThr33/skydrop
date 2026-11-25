@@ -347,6 +347,67 @@ def bar_chart(values, width, height, lo=None, hi=None, style="value", tops=None,
 
 # an area chart's fill: full strength along its top edge, darker toward the base
 FADE = (1.0, 0.8, 0.66, 0.57, 0.5)
+# a braille cell's dots, [row][column]: two across, four down
+BRAILLE_DOTS = ((0x01, 0x08), (0x02, 0x10), (0x04, 0x20), (0x40, 0x80))
+ASCII_LINE = "'-."                      # a line high, in the middle or low in its row, in ASCII
+
+
+def line_cells(values, scale, width, height, steps, ascii_only=False):
+    """A line through `values` as cells of text, `width` cells wide and `height` rows tall:
+    each value at the middle of its share of the width, straight between them (across any
+    gap), on `scale` (lo, hi), lo at the foot and hi at the top. Returns {(row, column):
+    (glyph, k)}, k the color step (0 to steps - 1) of where the line is there along the
+    scale. In braille dots, two across and four down a cell, joined up and down where the
+    line climbs or falls; in ASCII one character a column, ' - or . as it runs high, in the
+    middle or low in its row."""
+    n = len(values)
+    known = [(i, x) for i, x in enumerate(values) if x is not None]
+    if len(known) < 2 or width < 1 or height < 1 or steps < 1:
+        return {}
+    lo, hi = scale
+    span = (hi - lo) or 1.0
+
+    def at(p):
+        for (i0, a), (i1, b) in zip(known, known[1:]):
+            if p <= i1:
+                return a + (b - a) * (p - i0) / (i1 - i0)
+        return known[-1][1]
+
+    across = width if ascii_only else width * 2     # dots (or characters) across
+    down = height * (len(ASCII_LINE) if ascii_only else 4)
+    first, last = known[0][0], known[-1][0]
+    bits, where = {}, {}
+    prev = None
+    for xd in range(across):
+        p = (xd + 0.5) * n / across - 0.5
+        if p < first or p > last:
+            prev = None
+            continue
+        frac = max(0.0, min(1.0, (at(p) - lo) / span))
+        yd = int(round((1.0 - frac) * (down - 1)))
+        if ascii_only:
+            r, sub = divmod(yd, len(ASCII_LINE))
+            bits[(r, xd)] = ASCII_LINE[sub]
+            where.setdefault((r, xd), []).append(frac)
+            continue
+        c = xd // 2
+        if prev is None or yd == prev:
+            dots = range(yd, yd + 1)
+        elif yd > prev:
+            dots = range(prev + 1, yd + 1)      # falling: down from the last column's dot
+        else:
+            dots = range(yd, prev)              # climbing: up to it
+        for y in dots:
+            r = y // 4
+            bits[(r, c)] = bits.get((r, c), 0) | BRAILLE_DOTS[y % 4][xd % 2]
+            where.setdefault((r, c), []).append(frac)
+        prev = yd
+    out = {}
+    for cell, mark in bits.items():
+        fracs = where[cell]
+        k = int(round(sum(fracs) / len(fracs) * (steps - 1)))
+        out[cell] = (mark if ascii_only else chr(0x2800 + mark), max(0, min(steps - 1, k)))
+    return out
 
 
 def faded(style, k):
@@ -356,7 +417,7 @@ def faded(style, k):
 
 def area_chart(values, width, height, lo=None, hi=None, style="value", tops=None, labels=None,
                axis=(), guides=(), gutter=None, title="", now=None, base=True, plot=None, plot_from=None,
-               band=0, bars=()):
+               band=0, bars=(), line=(), line_scale=(0.0, 100.0), line_styles=()):
     """An area chart `width` cells wide and `height` rows tall: a line through the values
     (each at the middle of its share of the width, straight between them) drawn to an
     eighth of a cell, the area under it filled, brightest along the line and darker toward
@@ -364,11 +425,15 @@ def area_chart(values, width, height, lo=None, hi=None, style="value", tops=None
     around it, a style(value) colors it by the line's height there; `guides` run across
     the area, over its fill. `band` rows at the foot hold bars for some of the values,
     `bars` [(i, fraction, style, text)]: each as tall as its fraction of the band less its
-    top row, its text just over it; the area stands on the band. `plot`, when given, is a
-    picture of the area (and the band) to show in its place (with the row over it for the
-    values' text, when there are values): rows of spans from column `plot_from` (the
-    gutter's end, or 0 when the picture draws the scale too), its values, guides and scale
-    its own. Returns a list of lines."""
+    top row, its text just over it; the area stands on the band. `line`, a second series
+    (one value for each of the area's, None where there's none), runs over the area as a
+    line on its own scale, `line_scale` (lo at the area's foot, hi at its top), in braille
+    dots colored along its length by `line_styles`, spread evenly from lo to hi; it passes
+    behind the values' text. `plot`, when given, is a picture of the area (and the band
+    and the line) to show in its place (with the row over it for the values' text, when
+    there are values): rows of spans from column `plot_from` (the gutter's end, or 0 when
+    the picture draws the scale too), its values, guides and scale its own. Returns a list
+    of lines."""
     n = len(values)
     nums = [x for x in values if x is not None]
     if not n or not nums or width < 4 or height < 1:
@@ -464,6 +529,7 @@ def area_chart(values, width, height, lo=None, hi=None, style="value", tops=None
                 elif grid[r][c][0] == " ":
                     put(r, c, guide, gstyle)
         # each value's text just over the line where it is
+        texts = set()                           # the cells it takes
         for i, text in enumerate(tops or []):
             if not text or i >= n or values[i] is None:
                 continue
@@ -471,6 +537,25 @@ def area_chart(values, width, height, lo=None, hi=None, style="value", tops=None
             r = min(edge.get(c + k, top_row + area_h) for k in range(len(text))) - 1
             if r >= 0 and free(r, c, len(text)):
                 put(r, c, text, style_at(i, values[i]))
+                texts.update((r, c + k) for k in range(len(text)))
+        # the second series' line over the area, on its own scale, behind the values' text:
+        # over the area's fill its dots take the fill's color behind them
+        if line_styles and sum(1 for x in line if x is not None) >= 2:
+            for (r, c), (glyph, k) in line_cells(list(line)[:n], line_scale, plot_w, area_h,
+                                                 len(line_styles), asc).items():
+                r, c = top_row + r, gutter + c
+                if (r, c) in texts:
+                    continue
+                here, look = grid[r][c]
+                sty = line_styles[k]
+                if asc:
+                    put(r, c, glyph, sty)
+                elif (r, c) in fill:
+                    put(r, c, glyph, ("over", sty, fill[(r, c)]))
+                elif here in EIGHTHS[1:]:           # the area's top edge: filled from half a cell up
+                    put(r, c, glyph, ("over", sty, look) if EIGHTHS.index(here) >= 4 else sty)
+                else:
+                    put(r, c, glyph, sty)
         # the band's bars, standing on the base, each one's text just over it
         if band and bars:
             bar_rows = band - 1 if band > 1 else band

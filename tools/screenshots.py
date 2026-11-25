@@ -71,10 +71,12 @@ def simulate_outbreak(app, term):
 
 
 # made-up next 12 hours for the precipitation picture: rain turning to ice, then snow
-DEMO_HOURS = [(4.0, 10, "Mostly Cloudy"), (3.2, 20, "Chance Light Rain"), (2.5, 40, "Chance Rain"),
-              (1.8, 60, "Rain Likely"), (1.0, 80, "Rain"), (0.4, 90, "Rain And Sleet"), (0.0, 85, "Freezing Rain"),
-              (-0.6, 80, "Freezing Rain"), (-1.2, 70, "Wintry Mix"), (-1.8, 60, "Snow"), (-2.3, 50, "Snow"),
-              (-2.6, 35, "Light Snow"), (-2.8, 20, "Chance Light Snow")]
+# (temperature °C, chance %, forecast, humidity %)
+DEMO_HOURS = [(4.0, 10, "Mostly Cloudy", 64), (3.2, 20, "Chance Light Rain", 71), (2.5, 40, "Chance Rain", 79),
+              (1.8, 60, "Rain Likely", 87), (1.0, 80, "Rain", 94), (0.4, 90, "Rain And Sleet", 97),
+              (0.0, 85, "Freezing Rain", 98), (-0.6, 80, "Freezing Rain", 97), (-1.2, 70, "Wintry Mix", 95),
+              (-1.8, 60, "Snow", 93), (-2.3, 50, "Snow", 90), (-2.6, 35, "Light Snow", 86),
+              (-2.8, 20, "Chance Light Snow", 82)]
 
 
 KEPT = {}
@@ -88,8 +90,8 @@ def simulate_precipitation(app, term):
     KEPT["hourly"] = copy.deepcopy(app.model.get("hourly") or [])
     now = time.time()
     hours = [r for r in app.model.get("hourly") or [] if r.get("t") and r["t"] + 3600 > now]
-    for r, (temp, pop, words) in zip(hours, DEMO_HOURS):
-        r.update(temp=temp, pop=pop, nws_desc=words, desc=words, kind=icons.from_text(words))
+    for r, (temp, pop, words, hum) in zip(hours, DEMO_HOURS):
+        r.update(temp=temp, pop=pop, nws_desc=words, desc=words, kind=icons.from_text(words), hum=hum)
         r.pop("wmo", None)
     app.cache.clear()
     return []

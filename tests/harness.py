@@ -37,6 +37,8 @@ SHAPES = {
     "█": [(0, 0, 1, 1)], "▉": [(0, 0, 7 / 8, 1)], "▁": [(0, 7 / 8, 1, 1)], "▂": [(0, 6 / 8, 1, 1)],
     "▃": [(0, 5 / 8, 1, 1)], "▄": [(0, 0.5, 1, 1)], "▅": [(0, 3 / 8, 1, 1)], "▇": [(0, 1 / 8, 1, 1)],
 }
+# a braille cell's dots, [row][column], which the terminal draws itself too (the test font may have none)
+BRAILLE = ((0x01, 0x08), (0x02, 0x10), (0x04, 0x20), (0x40, 0x80))
 
 
 def color(c, default):
@@ -145,6 +147,13 @@ class FakeTerm:
                         for fx0, fy0, fx1, fy1 in SHAPES[ch_]:
                             d.rectangle([x * cw + round(fx0 * cw), y * ch + round(fy0 * ch),
                                          x * cw + round(fx1 * cw) - 1, y * ch + round(fy1 * ch) - 1], fill=fg)
+                    elif 0x2800 < ord(ch_) <= 0x28FF:     # braille, dot by dot, as kitty draws it
+                        bits, r = ord(ch_) - 0x2800, max(1.0, min(cw, ch) * 0.13)
+                        for row_, pair in enumerate(BRAILLE):
+                            for col_, bit in enumerate(pair):
+                                if bits & bit:
+                                    cx, cy = x * cw + (2 * col_ + 1) * cw / 4, y * ch + (2 * row_ + 1) * ch / 8
+                                    d.ellipse([cx - r, cy - r, cx + r - 1, cy + r - 1], fill=fg)
                     elif ch_ in "▀▄█":
                         if ch_ == "█":
                             d.rectangle([x * cw, y * ch, (x + 1) * cw - 1, (y + 1) * ch - 1], fill=fg)

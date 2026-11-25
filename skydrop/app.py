@@ -1323,8 +1323,10 @@ class App:
         name = loc.get("name") or self.cfg.get("location_name") or ""
         zipc = loc.get("zip") or ""
         sym = "*" if self.ascii else "💧"
-        brand = f" {sym} {APP} "
-        x = canvas.put(0, 0, [(brand, ("rgb", th.rgb("brand_fg"), th.rgb("brand_bg"), "b") if truecolor else "tabon")])
+        # the name, then the version in the same chip, not bold
+        chip = (th.rgb("brand_fg"), th.rgb("brand_bg"))
+        x = canvas.put(0, 0, [(f" {sym} {APP} ", ("rgb",) + chip + ("b",) if truecolor else "tabon"),
+                              (f"{VERSION} ", ("rgb",) + chip + ("",) if truecolor else "tabon")])
         x = canvas.put(0, x + 1, [(f" {name}", st("white", x + 1, "b")), (f" {zipc}" if zipc else "", st("label", x + 1))])
         F = self.fmt
         now = F.now()

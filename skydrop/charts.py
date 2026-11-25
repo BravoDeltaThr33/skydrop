@@ -736,7 +736,8 @@ AREA_LINE = 0.2                         # the line along the top: its color, thi
 
 
 def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, tops=(), guides=(), axis=(),
-               axis_ink=((150, 150, 150), (90, 90, 90)), band=0, bars=()):
+               axis_ink=((150, 150, 150), (90, 90, 90)), band=0, bars=(), line=(), line_scale=(0.0, 100.0),
+               line_color=None):
     """An area chart as a picture `w` x `h` pixels, `cols` x `rows` cells: a smooth curve through
     the values (each at the middle of its share of the width), the area under it shaded
     from just below the curve to darker at the base, a crisp line along the top. `color(p,
@@ -746,7 +747,11 @@ def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, 
     hold the scale, `axis` [(value, text)], in axis_ink (text, line). `band` rows at the
     foot hold a bar for some of the values, `bars` [(i, fraction, rgb, text)]: each as tall
     as its fraction of the band (less a line for its text, set over it), in its color with
-    a darker rim; the area stands on the band, its shade fading out before it."""
+    a darker rim; the area stands on the band, its shade fading out before it. `line`, a
+    second series (one value for each of the area's, None where there's none), runs over
+    the area as a smooth line on its own scale, `line_scale` (lo at the area's floor, hi at
+    the top of the plot), colored along its length by line_color(value); the values' text
+    stays over it."""
     bg = tuple(bg)
     img = gfx.Image.new("RGB", (w, h), bg)
     n = len(values)
@@ -801,8 +806,8 @@ def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, 
     toward = (0, 0, 0) if 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2] > 140 else (255, 255, 255)
     bright = gfx.Image.blend(paint, gfx.Image.new("RGB", (w, h), toward), AREA_LINE)
     # the line along the top, where there's any area under it
-    line = gfx.Image.new("L", (Ws, Hs), 0)
-    ld = gfx.ImageDraw.Draw(line)
+    crest = gfx.Image.new("L", (Ws, Hs), 0)
+    ld = gfx.ImageDraw.Draw(crest)
     run = []
     floor_y = Y(lo) - 0.35
     for px, py in pts:
@@ -814,8 +819,8 @@ def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, 
             run = []
     if len(run) > 1:
         ld.line(run, fill=255, width=int(round(lw * S)), joint="curve")
-    line = line.resize((w, h), gfx.BOX)
-    img = gfx.Image.composite(bright, img, line)
+    crest = crest.resize((w, h), gfx.BOX)
+    img = gfx.Image.composite(bright, img, crest)
     d = gfx.ImageDraw.Draw(img)
     # guides across, dashed, on whole pixels so they're crisp
     dash, gap = max(3, int(cell_w * 0.4)), max(2, int(cell_w * 0.3))
@@ -843,6 +848,10 @@ def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, 
             placed.append(ty)
             d.line([(ax - int(cell_w * 0.45), y), (ax, y)], fill=tuple(ln), width=1)
             gfx.draw_text(d, (ax - cell_w * 0.9, ty), text, small, tuple(txt), anchor="rm")
+    # the second series' line over the area, under the values' text
+    if line and line_color is not None:
+        img = _line_over(img, list(line)[:n], line_scale, line_color, n, x0, pw, top, base, cell_h, bg)
+        d = gfx.ImageDraw.Draw(img)
     # each value's text over the curve where it is, kept off its neighbors
     bold = gfx.font(cell_h * 0.62, bold=True)
     taken = []
@@ -866,6 +875,52 @@ def area_image(values, lo, hi, w, h, bg, color, cols=1, rows=1, head=0, left=0, 
     if band and bars:
         img = _band_bars(img, bars, n, x0, pw, base, cell_h, bg)
     return img
+
+
+def _line_over(img, values, scale, color, n, x0, pw, top, base, cell_h, bg):
+    """A second series over an area chart (area_image's `line`): a smooth curve through its
+    values (each at the middle of its share of the width, from the first to the last) on
+    its own scale, lo at the area's floor and hi at the top of the plot, colored along its
+    length by color(value), round at its ends, and edged with a darker shade of the card
+    (a lighter one on a light card) so it reads over the area's shade as well as off it."""
+    w, h = img.size
+    known = [(i, v) for i, v in enumerate(values) if v is not None]
+    if len(known) < 2 or base - top < 2:
+        return img
+    lo, hi = scale
+    span = (hi - lo) or 1.0
+
+    def X(p):
+        return x0 + (p + 0.5) * pw / n
+
+    def Y(v):
+        return top + (1.0 - max(0.0, min(1.0, (v - lo) / span))) * (base - top)
+
+    curve = smooth_curve([X(i) for i, _v in known], [max(lo, min(hi, v)) for _i, v in known])
+    xa, xb = X(known[0][0]), X(known[-1][0])
+    S = 4                                       # drawn 4x over and shrunk: smooth edges
+    steps = max(2, int((xb - xa) * 2) + 1)
+    xs = [xa + (xb - xa) * k / (steps - 1) for k in range(steps)]
+    pts = [(x * S, Y(curve(x)) * S) for x in xs]
+    lw = max(2.0, min(5.0, cell_h * 0.19))      # heavier than the area's own line
+    rim = max(1.0, lw * 0.35)
+
+    def mask(width):
+        m = gfx.Image.new("L", (w * S, h * S), 0)
+        md = gfx.ImageDraw.Draw(m)
+        md.line(pts, fill=255, width=max(1, int(round(width * S))), joint="curve")
+        r = width * S / 2
+        for px, py in (pts[0], pts[-1]):         # round ends
+            md.ellipse([px - r, py - r, px + r, py + r], fill=255)
+        return m.resize((w, h), gfx.BOX)
+
+    light = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2] > 140
+    edge = blend(bg, (255, 255, 255), 0.7) if light else blend(bg, (0, 0, 0), 0.55)
+    img = gfx.Image.composite(gfx.Image.new("RGB", (w, h), edge), img, mask(lw + 2 * rim))
+    # the colors, column by column, where the line is
+    strip = gfx.Image.new("RGB", (w, 1))
+    strip.putdata([tuple(color(curve(min(xb, max(xa, x + 0.5))))[:3]) for x in range(w)])
+    return gfx.Image.composite(strip.resize((w, h), gfx.NEAREST), img, mask(lw))
 
 
 def _band_bars(img, bars, n, x0, pw, base, cell_h, bg):

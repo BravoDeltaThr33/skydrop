@@ -78,15 +78,18 @@ key, you can add it in Settings as an extra source.
   hour that may bring precipitation has a bar as tall as its chance, colored
   by what falls, as on weather radar: rain in shades of green from light to
   heavy, thunderstorms gold, snow white, sleet pink, freezing rain magenta and
-  a wintry mix violet. A station's last 24 hours
-  and the air quality's past and next 24 hours are solid columns, each
-  outlined so they stand apart and colored by how high it ran.
+  a wintry mix violet. Over the temperature, a line tracks the humidity hour
+  by hour, colored along the whole spectrum: red for the driest air, then
+  orange, yellow, green, cyan and blue, to violet for the most humid. A
+  station's last 24 hours and the air quality's past and next 24 hours are
+  solid columns, each outlined so they stand apart and colored by how high it
+  ran.
 * **Panels, like a TV weather display**: every screen is laid out in rounded,
   filled cards that stand on the page, each part in its own titled card;
-  long tables have every other row shaded, and the title bar shows the
-  temperature and sky right now on every screen. Square corners for fonts
-  without the rounded ones, plain `+-|` in ASCII mode; under CRT mode the
-  cards stay flat, as a tube would show them.
+  long tables have every other row shaded, and the title bar shows skydrop's
+  version and the temperature and sky right now on every screen. Square
+  corners for fonts without the rounded ones, plain `+-|` in ASCII mode;
+  under CRT mode the cards stay flat, as a tube would show them.
 * **Keyboard and mouse**: every screen, button and setting works from the
   keyboard; click, drag and scroll work too.
 
@@ -107,12 +110,12 @@ Windows 10. On a Mac, `brew install --cask kitty` or
 ## Install
 
 Download the file for your system from the [release](release) folder (the
-version here is 3.15.0), then:
+version here is 3.16.0), then:
 
 ### Debian, Ubuntu and Mint: the .deb package
 
 ```bash
-cd ~/Downloads && sudo apt install ./skydrop_3.15.0_all.deb && skydrop --version
+cd ~/Downloads && sudo apt install ./skydrop_3.16.0_all.deb && skydrop --version
 ```
 
 apt pulls in what skydrop needs (Python's Pillow, the DejaVu fonts, espeak-ng
@@ -125,7 +128,7 @@ instead. Upgrade by installing a newer .deb the same way; remove it with
 ### Any Linux: the installer archive
 
 ```bash
-cd ~/Downloads && tar xzf skydrop-3.15.0-linux.tar.gz && cd skydrop-3.15.0 && ./install.sh && skydrop --version
+cd ~/Downloads && tar xzf skydrop-3.16.0-linux.tar.gz && cd skydrop-3.16.0 && ./install.sh && skydrop --version
 ```
 
 Everything goes in your home folder; nothing needs root except optional
@@ -148,11 +151,11 @@ first on your PATH wins.
 
 ### macOS
 
-Download `skydrop-3.15.0-macos.zip` and double-click it if your browser
+Download `skydrop-3.16.0-macos.zip` and double-click it if your browser
 hasn't unpacked it already. Then, in Terminal:
 
 ```bash
-cd ~/Downloads/skydrop-3.15.0-macos && bash install.sh && ~/.local/bin/skydrop --version
+cd ~/Downloads/skydrop-3.16.0-macos && bash install.sh && ~/.local/bin/skydrop --version
 ```
 
 The installer works as on Linux: a private Python with Pillow and Piper in
@@ -164,7 +167,7 @@ pictures.
 
 ### Windows
 
-1. Download `skydrop-3.15.0-windows.zip`, right-click it and choose
+1. Download `skydrop-3.16.0-windows.zip`, right-click it and choose
    **Extract All**.
 2. Open the extracted folder and double-click **install.cmd**. If Windows
    SmartScreen says it protected your PC, choose **More info**, then
@@ -238,7 +241,7 @@ right-hand sidebar adds radar, stations, almanac and more.
 
 | Key | Screen | What's on it |
 |-----|--------|--------------|
-| 1 | Now | Current conditions with a big temperature (in kitty or Ghostty, in a rounded, squared display face shaded in its color) and icon; a row of tiles for wind (with an arrow showing where it blows), humidity, pressure and its trend, visibility, clouds and UV; the NWS forecast in words; the next 12 hours in one chart (the temperature, colored by how warm it is, over a bar for each hour precipitation may fall, as tall as its chance and colored by what falls: rain in greens from light to heavy, storms gold, snow white, sleet pink, freezing rain magenta, a wintry mix violet, with a key under it); the nearest official station's report beside the model's, row by row; and a sidebar with the local radar, nearby stations, almanac, outlooks and air quality |
+| 1 | Now | Current conditions with a big temperature (in kitty or Ghostty, in a rounded, squared display face shaded in its color) and icon; a row of tiles for wind (with an arrow showing where it blows), humidity, pressure and its trend, visibility, clouds and UV; the NWS forecast in words; the next 12 hours in one chart (the temperature, colored by how warm it is, with the humidity as a line over it, colored along the spectrum from red for the driest air to violet for the most humid, over a bar for each hour precipitation may fall, as tall as its chance and colored by what falls: rain in greens from light to heavy, storms gold, snow white, sleet pink, freezing rain magenta, a wintry mix violet, with a key under it for each); the nearest official station's report beside the model's, row by row; and a sidebar with the local radar, nearby stations, almanac, outlooks and air quality |
 | 2 | Hourly | A 48-hour chart (a smooth temperature line colored by how warm it is, the night hours shaded, the high and low tagged, a line every 5°, the 10s labeled) over a table of every hour, which scrolls (a scroll bar down its right edge shows where you are): temperature, feels-like, rain chance and amount, wind, gusts, humidity, dew point, clouds, UV, thunder chance, wet-bulb globe temperature, pressure, visibility; details for the selected hour, highlights, and the best times to be outside |
 | 3 | 10-Day | Icons for each day, a table with temperature range bars (in kitty or Ghostty, pills shaded through the temperatures they span, on one scale, with a dot for now on today) and NWS HeatRisk (columns with nothing to show stay out), "the outlook at a glance", a highs-and-lows chart (smooth curves with the band between them shaded in the temperatures' colors), and the selected day's full NWS text plus hour by hour |
 | 4 | Radar | Single-site NEXRAD radar with every Level 3 product and tilt (or the national mosaic), the Supercell-style toolbox, linked panes, storm tracks, warning polygons, placefiles, and a nowcast that estimates when rain will reach you |

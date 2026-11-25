@@ -19,7 +19,7 @@ param(
   [switch]$Yes
 )
 
-$Version = "3.15.0"
+$Version = "3.16.0"
 $ErrorActionPreference = "Continue"
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 

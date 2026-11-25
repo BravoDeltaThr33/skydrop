@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.16.0
+
+* The Now screen's Next 12 hours chart has a humidity line over the
+  temperature: the relative humidity hour by hour, on its own scale (0% at the
+  chart's foot, 100% at its top), colored along the whole spectrum, from red
+  for the driest air through orange, yellow, green, cyan and blue to violet
+  for the most humid. In kitty, Ghostty and sixel terminals it's a smooth line
+  with a dark edge, so it reads over the shaded temperature; elsewhere it's
+  drawn in braille dots, and in plain characters in ASCII mode.
+* A key under the chart, Humidity, shows the spectrum from 0% to 100% and the
+  lowest and highest humidity in the next 12 hours, each in its color.
+* The title bar shows skydrop's version beside its name.
+
 ## 3.15.0
 
 * The Now screen's Next 12 hours is one chart instead of two, three rows
