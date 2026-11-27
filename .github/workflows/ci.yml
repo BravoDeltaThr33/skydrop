@@ -52,6 +52,88 @@ jobs:
           call "%LOCALAPPDATA%\skydrop\bin\skydrop.cmd" --version || exit /b 1
           powershell -NoProfile -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\skydrop\uninstall.ps1"
 
+  # The macOS and Windows downloads in release/, for this version, installed the way the
+  # README tells people to: what someone gets on a Mac or a Windows PC.
+  downloads:
+    name: Download (${{ matrix.os }})
+    needs: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the macOS download
+        if: runner.os == 'macOS'
+        run: |
+          version="$(sed -n 's/^VERSION = "\(.*\)"/\1/p' skydrop/__init__.py)"
+          zip="$GITHUB_WORKSPACE/release/skydrop-$version-macos.zip"
+          [ -f "$zip" ] || { echo "release/ has no skydrop-$version-macos.zip"; ls release; exit 1; }
+          # a browser marks the file it downloads; Finder unpacks it and passes the mark on
+          xattr -w com.apple.quarantine "0083;$(printf '%x' "$(date +%s)");Safari;" "$zip"
+          ditto -x -k "$zip" "$RUNNER_TEMP/download"
+          cd "$RUNNER_TEMP/download/skydrop-$version-macos"
+          # `bash install.sh` in a Mac's Terminal runs the bash macOS comes with (3.2)
+          /bin/bash -c 'echo "installing with bash $BASH_VERSION"'
+          /bin/bash install.sh --yes --no-voice
+          got="$(~/.local/bin/skydrop --version)"
+          echo "$got"
+          [ "$got" = "skydrop $version" ]
+          ~/.local/bin/skydrop --help > /dev/null
+          ~/.local/bin/skydrop --write-icon "$RUNNER_TEMP/icon.png"
+          [ -s "$RUNNER_TEMP/icon.png" ]
+          ~/.local/share/skydrop/venv/bin/python "$GITHUB_WORKSPACE/tools/check_install.py" \
+            ~/.local/share/skydrop/app "$version"
+          /bin/bash ~/.local/share/skydrop/uninstall.sh
+          [ ! -e ~/.local/bin/skydrop ] && [ ! -e ~/.local/share/skydrop ]
+      - name: Unpack the Windows download
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path skydrop\__init__.py -Pattern '^VERSION = "(.+)"').Matches[0].Groups[1].Value
+          $zip = Join-Path $env:GITHUB_WORKSPACE "release\skydrop-$version-windows.zip"
+          if (-not (Test-Path $zip)) { Get-ChildItem release; throw "release/ has no skydrop-$version-windows.zip" }
+          # a browser marks the file it downloads as from the internet; Extract All passes
+          # the mark on to every file it unpacks
+          $mark = "[ZoneTransfer]`r`nZoneId=3"
+          Set-Content -LiteralPath $zip -Stream Zone.Identifier -Value $mark
+          $dest = Join-Path $env:RUNNER_TEMP "download"
+          Expand-Archive -Path $zip -DestinationPath $dest
+          Get-ChildItem $dest -Recurse -File | ForEach-Object { Set-Content -LiteralPath $_.FullName -Stream Zone.Identifier -Value $mark }
+          Add-Content -Path $env:GITHUB_ENV -Encoding utf8 -Value "SKYDROP_VERSION=$version"
+          Add-Content -Path $env:GITHUB_ENV -Encoding utf8 -Value "SKYDROP_DOWNLOAD=$dest\skydrop-$version-windows"
+      - name: Install the Windows download
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: call "%SKYDROP_DOWNLOAD%\install.cmd" -Yes -NoVoice || exit /b 1
+      - name: Check the Windows install
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:LOCALAPPDATA "skydrop"
+          $got = & "$data\bin\skydrop.cmd" --version
+          Write-Host $got
+          if ($LASTEXITCODE -ne 0 -or "$got".Trim() -ne "skydrop $env:SKYDROP_VERSION") { throw "skydrop --version said: $got" }
+          & "$data\bin\skydrop.cmd" --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "skydrop --help failed" }
+          & "$data\venv\Scripts\python.exe" "$env:GITHUB_WORKSPACE\tools\check_install.py" "$data\app" $env:SKYDROP_VERSION
+          if ($LASTEXITCODE -ne 0) { throw "the installed program isn't complete" }
+          $made = @("$data\skydrop.ico",
+                    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\skydrop.lnk",
+                    "$env:LOCALAPPDATA\Microsoft\Windows Terminal\Fragments\skydrop\skydrop.json")
+          foreach ($f in $made) { if (-not (Test-Path $f)) { throw "the installer didn't make $f" } }
+          if ("$((Get-ItemProperty HKCU:\Environment).Path)" -notlike "*skydrop\bin*") { throw "skydrop\bin isn't on the PATH" }
+      - name: Uninstall the Windows download
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "%LOCALAPPDATA%\skydrop\uninstall.cmd"
+          if exist "%LOCALAPPDATA%\skydrop" (echo the skydrop folder is still there & exit /b 1)
+          if exist "%APPDATA%\Microsoft\Windows\Start Menu\Programs\skydrop.lnk" (echo the Start menu shortcut is still there & exit /b 1)
+          if exist "%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\skydrop" (echo the Windows Terminal profiles are still there & exit /b 1)
+          exit /b 0
+
   packages:
     name: Release files
     needs: tests
