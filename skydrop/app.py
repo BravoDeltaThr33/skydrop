@@ -71,6 +71,13 @@ HELP = [
     ("Ctrl-L", "redraw the screen"),
     ("q", "quit"),
 ]
+# skydrop's own window (skydrop.exe, --window): its keys, shown after the keys of every
+# screen, where a small window still has room for them
+WINDOW_HELP = [
+    ("Window", "F11 or Alt-Enter full screen, Ctrl + Ctrl - font size, Ctrl 0 the size in Settings"),
+    ("", "drag selects text (Shift-drag while the mouse is on), Ctrl-Shift-C or a right-click copies, "
+         "Ctrl-V pastes"),
+]
 
 
 # radar state that changes by itself (animation, mouse) and doesn't by itself change a screen
@@ -180,7 +187,8 @@ class App:
             W, H = self.term.size()[:2]
             colors = {"truecolor": "24-bit color", "256": "256 colors", "16": "16 colors"}.get(
                 self.color_mode, f"{self.color_mode} colors")
-            return ("Display", f"{W} × {H} cells · {os.environ.get('TERM', '?')} · {colors}", "OK", None)
+            where = self.term.caps.name if getattr(self.term, "is_window", False) else os.environ.get("TERM", "?")
+            return ("Display", f"{W} × {H} cells · {where} · {colors}", "OK", None)
         if index == 3:
             if crt.pictures:
                 name = C.TERMINAL.get("name") or kind or "this terminal"
@@ -248,7 +256,8 @@ class App:
         self.renderer.crt.checks = self.post_check
         who = f"{caps.name} {getattr(caps, 'xtversion', '')}".lower()
         C.TERMINAL["name"] = who.strip()
-        self.renderer.crt.glass_ok = "kitty" in who or "ghostty" in who     # the CRT glass: kitty and Ghostty
+        # the CRT glass: kitty, Ghostty and skydrop's own window
+        self.renderer.crt.glass_ok = "kitty" in who or "ghostty" in who or "skydrop window" in who
         self.renderer.configure(self.theme, c, g, cfg=self.cfg)
         self.term.set_mouse(on(self.cfg, "mouse"))
         self.cache.clear()
@@ -258,6 +267,8 @@ class App:
         self.term.install_signals()
         self.store.refresh()
         if on(self.cfg, "background_watch") and self.store.persist_enabled:
+            if getattr(sys, "frozen", False):
+                watch.set_autostart(True)  # skydrop.exe has no installer: the login item follows it about
             watch.start_watcher()          # in case it isn't running (it was stopped, or never started)
         try:
             self._loop()
@@ -1783,12 +1794,16 @@ class App:
     def draw_help(self, canvas, H, W):
         """The keys, in a card over the screen with a shadow under it."""
         import textwrap
-        groups = ("Radar", "Alarm", "Stations", "Settings", "CRT")
-        need = max(len(what) for _k, what in HELP) + 24
+        groups = ("Radar", "Alarm", "Stations", "Settings", "CRT", "Window")
+        rows = list(HELP)
+        if getattr(self.term, "is_window", False):
+            at = next(i for i, (k, _w) in enumerate(rows) if k == "Radar")
+            rows[at:at] = WINDOW_HELP
+        need = max(len(what) for _k, what in rows) + 24
         bw = max(44, min(W - 4, need))
         tw = bw - 4 - 18
         body = []
-        for keys, what in HELP:
+        for keys, what in rows:
             if keys in groups:
                 body.append([])
             for j, part in enumerate(textwrap.wrap(what, tw) or [""]):

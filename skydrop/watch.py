@@ -107,6 +107,8 @@ def watcher_pid():
 def command():
     """How to start this skydrop from outside, by absolute paths (a login session may not
     have ~/.local/bin on its PATH yet)."""
+    if getattr(sys, "frozen", False):
+        return [os.path.abspath(sys.executable)]      # skydrop.exe
     script = os.path.abspath(sys.argv[0]) if sys.argv and sys.argv[0] else ""
     if os.path.basename(script) == "run.py" and os.path.exists(script):
         return [sys.executable, script]       # the installed program
@@ -130,9 +132,13 @@ def start_watcher():
     """Start the background watch now (if it isn't running). True when one is running."""
     if watcher_pid():
         return True
+    env = None
+    if getattr(sys, "frozen", False):
+        # skydrop.exe: a watch of its own, which outlives this one (and the files it unpacked)
+        env = dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT="1")
     try:
         subprocess.Popen(watch_command(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL, close_fds=True, **osdeps.background(detach=True))
+                         stderr=subprocess.DEVNULL, close_fds=True, env=env, **osdeps.background(detach=True))
     except OSError as e:
         log(f"couldn't start the watcher: {e}")
         return False

@@ -503,7 +503,7 @@ class TestSettingsSections(unittest.TestCase):
         st = self.st
         st.draft["units"] = "metric"
         row = "".join(t for t, _s in st.title_row(("sec", "Display"), 80, st.dirty()))
-        self.assertIn("19 settings", row)
+        self.assertIn("21 settings", row)              # 3.17: the window font and its size
         self.assertIn("1 unsaved", row)
         row = "".join(t for t, _s in st.title_row(("sec", "Data sources"), 80, st.dirty()))
         self.assertRegex(row, r"\d+ sources, \d+ on")

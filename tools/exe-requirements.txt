@@ -1,0 +1,15 @@
+# The tools that build skydrop.exe (tools/build_exe.py), for 64-bit Python 3.13 on Windows:
+#
+#   py -3.13 -m pip install --require-hashes --only-binary :all: -r tools/exe-requirements.txt
+#
+# Every version is pinned and checked against its hash. skydrop itself needs none of
+# these but Pillow (and tzdata on Windows); they go inside skydrop.exe with Python.
+altgraph==0.17.5 --hash=sha256:f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597
+packaging==26.4 --hash=sha256:81383611a09c1bc0b08b76e0fd5829d7c6824c65b27a6aee339da133f4233ea2
+pefile==2024.8.26 --hash=sha256:76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f
+pillow==13.0.0 --hash=sha256:9dda0788a9932776a75d8bcc020076edc308ce2508b51f6739a45e3158b3fc42
+pyinstaller==6.22.3 --hash=sha256:500bd58c7bf7e584a8435adccbd763a0b918d5c12b08d74ff50fd79b2915458b
+pyinstaller-hooks-contrib==2026.10 --hash=sha256:dfc3cde20a7ce6c92e803016e66eed4b7050467e2c5f886a3745d89b258c6d6d
+pywin32-ctypes==0.2.3 --hash=sha256:8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8
+setuptools==84.2.1 --hash=sha256:ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2
+tzdata==2026.6 --hash=sha256:0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec

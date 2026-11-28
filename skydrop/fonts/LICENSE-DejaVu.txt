@@ -1,8 +1,10 @@
-DejaVu fonts (DejaVu Sans, DejaVu Sans Condensed)
+DejaVu fonts 2.37 (DejaVu Sans, DejaVu Sans Condensed, DejaVu Sans Mono)
 https://dejavu-fonts.github.io/
 
-skydrop includes these four font files unchanged to label its pictures:
-DejaVuSans.ttf, DejaVuSans-Bold.ttf, DejaVuSansCondensed.ttf, DejaVuSansCondensed-Bold.ttf
+skydrop includes these six font files unchanged. The first four label its pictures;
+DejaVu Sans Mono is the second font of its window:
+DejaVuSans.ttf, DejaVuSans-Bold.ttf, DejaVuSansCondensed.ttf, DejaVuSansCondensed-Bold.ttf,
+DejaVuSansMono.ttf, DejaVuSansMono-Bold.ttf
 
 Fonts are (c) Bitstream (see below). DejaVu changes are in public domain.
 

@@ -137,6 +137,8 @@ def find_player(pref="auto"):
 
 def player_cmd(player, path):
     if player == "winsound":
+        if getattr(sys, "frozen", False):     # skydrop.exe plays it itself (it takes no -c)
+            return [sys.executable, "--play-wav", path]
         return [sys.executable, "-c", _WINSOUND, path]
     if player == "afplay":
         return ["afplay", path]

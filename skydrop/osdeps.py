@@ -176,6 +176,79 @@ def parent_pid(pid):
         return None
 
 
+def windows_parent(pid):
+    """Windows: a process's parent, from a list of the running processes (None when it
+    can't be told)."""
+    if not WINDOWS:
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    class Entry(ctypes.Structure):                        # PROCESSENTRY32W
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
+                    ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
+                    ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+
+    k32 = _kernel32()
+    k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    k32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    k32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(Entry)]
+    k32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(Entry)]
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    snap = k32.CreateToolhelp32Snapshot(0x2, 0)          # TH32CS_SNAPPROCESS
+    if not snap or snap == wintypes.HANDLE(-1).value:
+        return None
+    try:
+        entry = Entry()
+        entry.dwSize = ctypes.sizeof(Entry)
+        ok = k32.Process32FirstW(snap, ctypes.byref(entry))
+        while ok:
+            if entry.th32ProcessID == pid:
+                return int(entry.th32ParentProcessID) or None
+            ok = k32.Process32NextW(snap, ctypes.byref(entry))
+    finally:
+        k32.CloseHandle(snap)
+    return None
+
+
+def attach_console():
+    """Windows, skydrop.exe started from a Command Prompt or PowerShell: it's a window
+    program, so it has no console of its own; borrow the one it was started from (its
+    parent's, or its grandparent's: the one-file .exe runs as a child of itself).
+    Returns (stdout, stderr) writing to that console, or None when there's none."""
+    if not WINDOWS:
+        return None
+    import ctypes
+    from ctypes import wintypes
+    k32 = _kernel32()
+    k32.AttachConsole.argtypes = [wintypes.DWORD]
+    attached = bool(k32.AttachConsole(0xFFFFFFFF))           # ATTACH_PARENT_PROCESS
+    if not attached:
+        grand = windows_parent(os.getppid())
+        attached = bool(grand) and bool(k32.AttachConsole(grand))
+    if not attached:
+        return None
+    try:
+        out = open("CONOUT$", "w", encoding="utf-8", errors="replace")
+        err = open("CONOUT$", "w", encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    try:                                     # colors: let the console read escape codes
+        import msvcrt
+        handle = msvcrt.get_osfhandle(out.fileno())
+        k32.GetConsoleMode.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        k32.SetConsoleMode.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        mode = wintypes.DWORD()
+        if k32.GetConsoleMode(handle, ctypes.byref(mode)):
+            k32.SetConsoleMode(handle, mode.value | 0x0004)  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+    except (ImportError, OSError, ValueError):
+        pass
+    out.write("\n")                          # the prompt came back while the .exe started
+    return out, err
+
+
 def process_name(pid):
     """A process's program name (no folder), or ''."""
     if WINDOWS:

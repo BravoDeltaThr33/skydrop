@@ -342,7 +342,120 @@ def write_icon(path, size=256):
     return 0
 
 
+def frozen():
+    """True in skydrop.exe (built with PyInstaller), False when Python runs skydrop's files."""
+    return bool(getattr(sys, "frozen", False))
+
+
+class Console:
+    """skydrop.exe's stdout or stderr: a window program has none, so the first thing
+    printed finds the console it was started from (a Command Prompt, PowerShell), or
+    prints nowhere when it was started from the desktop."""
+
+    streams = None
+
+    def __init__(self, which):
+        self.which = which
+
+    @classmethod
+    def open(cls):
+        if cls.streams is None:
+            from .osdeps import attach_console
+            got = attach_console()
+            if got is None:
+                null = open(os.devnull, "w", encoding="utf-8")
+                got = (null, null)
+            cls.streams = got
+        return cls.streams
+
+    @classmethod
+    def quiet(cls):
+        """The window: nothing printed goes to a console."""
+        if cls.streams is None:
+            null = open(os.devnull, "w", encoding="utf-8")
+            cls.streams = (null, null)
+
+    def write(self, text):
+        return self.open()[self.which].write(text)
+
+    def isatty(self):
+        stream = self.open()[self.which]
+        if getattr(stream, "name", None) == os.devnull:
+            return False                    # Windows calls its NUL device a terminal
+        return stream.isatty()
+
+    def __getattr__(self, name):
+        return getattr(self.open()[self.which], name)
+
+
+def play_wav(path):
+    """skydrop.exe --play-wav FILE: the .exe plays a sound itself on Windows (the Python
+    versions run `python -c "import winsound ..."` for it)."""
+    try:
+        import winsound
+    except ImportError:
+        print(f"{APP}: --play-wav works on Windows only", file=sys.stderr)
+        return 2
+    try:
+        winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_NODEFAULT)
+    except RuntimeError:
+        return 1
+    return 0
+
+
+def licenses_text():
+    """skydrop's license, then those of the fonts and code it includes: the files in
+    skydrop/fonts and, in skydrop.exe, those of Python, Tcl/Tk, Pillow, tzdata and
+    PyInstaller's bootloader (tools/build_exe.py puts them in)."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    paths = [p for p in (os.path.join(here, "LICENSE.txt"), os.path.join(os.path.dirname(here), "LICENSE"))
+             if os.path.isfile(p)][:1]
+    fonts = os.path.join(here, "fonts")
+    if os.path.isdir(fonts):
+        paths += [os.path.join(fonts, n) for n in sorted(os.listdir(fonts)) if n.endswith(".txt")]
+    paths.append(os.path.join(here, "THIRD-PARTY.txt"))
+    parts = []
+    for path in paths:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                parts.append(fh.read().strip())
+        except OSError:
+            continue
+    return ("\n\n" + "=" * 78 + "\n\n").join(parts) + "\n"
+
+
+def start_screen(args):
+    from .app import SCREENS, SETTINGS_IDX
+    return SETTINGS_IDX if args.screen == 0 else min(max(args.screen, 1), len(SCREENS)) - 1
+
+
+def window_module():
+    """skydrop.window, which draws with Pillow (None, and why, without it)."""
+    if not gfx.HAVE_PIL:
+        print(f"{APP}: the window needs Pillow (on Debian and Ubuntu: sudo apt install python3-pil "
+              "python3-pil.imagetk python3-tk)", file=sys.stderr)
+        return None
+    from . import window
+    window.own_environment()
+    return window
+
+
+def run_window(args, cfg, store):
+    """The app in a window of its own (skydrop.exe; skydrop --window)."""
+    window = window_module()
+    if window is None:
+        return 2
+    try:
+        locale.setlocale(locale.LC_ALL, "")
+    except locale.Error:
+        pass
+    return window.run(cfg, store, start_screen(args), args.units, args.local8s)
+
+
 def main(argv=None):
+    if frozen() and (sys.stdout is None or sys.stderr is None):
+        sys.stdout = sys.stdout or Console(0)
+        sys.stderr = sys.stderr or Console(1)
     ap = argparse.ArgumentParser(prog=APP, description="Retro Weather Channel style weather for the terminal "
                                                        "(NWS, Open-Meteo, NOAA radar, live stations, read-aloud).")
     ap.set_defaults(once=None)
@@ -367,6 +480,13 @@ def main(argv=None):
     modes.add_argument("--write-icon", metavar="FILE", help=argparse.SUPPRESS)
     modes.add_argument("--voice-check", action="store_true", help=argparse.SUPPRESS)
     modes.add_argument("--set", nargs="+", metavar="KEY=VALUE", help=argparse.SUPPRESS)
+    modes.add_argument("--licenses", action="store_true",
+                       help="print the licenses of skydrop and of the fonts and code it includes")
+    modes.add_argument("--snapshot", metavar="FILE", help=argparse.SUPPRESS)   # the window, as a PNG
+    modes.add_argument("--play-wav", metavar="FILE", help=argparse.SUPPRESS)   # skydrop.exe's sounds
+    ap.add_argument("--window", action="store_true",
+                    help="open in a window of its own, drawn as Ghostty draws it (skydrop.exe always does; "
+                         "needs tkinter)")
     ap.add_argument("--zip", metavar="PLACE", help="ZIP code or 'City, ST' for this run only (not saved)")
     ap.add_argument("--screen", type=int, default=1, help="start on screen N (1-9, 0 for Settings)")
     ap.add_argument("--local8s", action="store_true", help="start in Local on the 8s presentation mode")
@@ -379,6 +499,17 @@ def main(argv=None):
     ap.add_argument("--no-color", action="store_true", help="plain one-shot output; the app runs without the CRT effect")
     ap.add_argument("--version", action="version", version=f"{APP} {VERSION}")
     args = ap.parse_args(argv)
+    if args.play_wav:
+        return play_wav(args.play_wav)
+    if args.licenses:
+        sys.stdout.write(licenses_text())
+        return 0
+    one_off = (args.once is not None or args.json or args.raw or args.check or args.speak or
+               args.get_voice is not None or args.watch or args.watch_stop or args.test_alarm or
+               args.watch_sync or args.write_icon or args.voice_check or args.set or args.snapshot)
+    in_window = (args.window or frozen()) and not one_off
+    if in_window and isinstance(sys.stdout, Console):
+        Console.quiet()
 
     cfg = load_config()
     persist = True
@@ -452,6 +583,21 @@ def main(argv=None):
     if args.once is not None or args.json or args.raw:
         return one_shot(args, cfg, store)
 
+    if args.snapshot:
+        window = window_module()
+        return 2 if window is None else window.snapshot(cfg, store, args.snapshot, start_screen(args), args.units)
+    if in_window and args.probe:
+        window = window_module()
+        return 2 if window is None else window.probe(cfg)
+    if in_window:
+        rc = run_window(args, cfg, store)
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.flush()
+            except (AttributeError, OSError, ValueError):
+                pass
+        os._exit(rc)       # downloads still in flight would otherwise hold the exit
+
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         print(f"{APP}: the full-screen app needs a terminal; try --now or --help", file=sys.stderr)
         return 2
@@ -459,7 +605,7 @@ def main(argv=None):
         locale.setlocale(locale.LC_ALL, "")
     except locale.Error:
         pass
-    from .app import SETTINGS_IDX, SCREENS, App
+    from .app import App
     from .local8s import Local8s
     from .term import open_terminal
     term = open_terminal()
@@ -479,7 +625,7 @@ def main(argv=None):
         print(f"Auto mode: {c.graphics_auto()} graphics, {c.color_auto()} color")
         print(f"Pillow:    {'available' if gfx.HAVE_PIL else 'missing (pip install pillow)'}")
         return 0
-    start = SETTINGS_IDX if args.screen == 0 else min(max(args.screen, 1), len(SCREENS)) - 1
+    start = start_screen(args)
     app = None
     rc = 0
     try:
