@@ -378,6 +378,12 @@ class Console:
     def write(self, text):
         return self.open()[self.which].write(text)
 
+    def isatty(self):
+        stream = self.open()[self.which]
+        if getattr(stream, "name", None) == os.devnull:
+            return False                    # Windows calls its NUL device a terminal
+        return stream.isatty()
+
     def __getattr__(self, name):
         return getattr(self.open()[self.which], name)
 

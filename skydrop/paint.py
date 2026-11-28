@@ -43,6 +43,16 @@ SYSTEM_FALLBACKS = ("seguisym.ttf", "segoeui.ttf", "seguiemj.ttf", "NotoSansSymb
 COLOR_FONTS = ("seguiemj.ttf", "NotoColorEmoji.ttf")
 BOLD_FILES = {"JetBrainsMono-Regular.ttf": "JetBrainsMono-Bold.ttf", "DejaVuSansMono.ttf": "DejaVuSansMono-Bold.ttf",
               "DejaVuSans.ttf": "DejaVuSans-Bold.ttf", "segoeui.ttf": "segoeuib.ttf"}
+# Pillow's basic layout: each glyph advances by its hinted width, in whole pixels, as
+# Ghostty's FreeType hands them over. (Raqm, which Pillow uses where FriBiDi is installed,
+# gives the unhinted fractions, so the cell would depend on the computer: JetBrains Mono
+# at 13 pt is 10 pixels wide hinted and 11 unhinted.)
+BASIC_LAYOUT = getattr(getattr(ImageFont, "Layout", None), "BASIC", getattr(ImageFont, "LAYOUT_BASIC", 0))
+
+
+def truetype(path, size):
+    """A font file at a size in pixels, laid out the way the window measures its cells."""
+    return ImageFont.truetype(path, size, layout_engine=BASIC_LAYOUT)
 
 
 def font_key(name):
@@ -241,14 +251,14 @@ class Face:
         self.font = None
         self.scale = 1.0
         try:
-            self.font = ImageFont.truetype(path, px)
+            self.font = truetype(path, px)
         except (OSError, ValueError, TypeError):
             try:
-                self.font = ImageFont.truetype(path, max(1, int(round(px))))
+                self.font = truetype(path, max(1, int(round(px))))
             except (OSError, ValueError):
                 if color:          # a bitmap emoji font comes in one size: draw it there and shrink
                     try:
-                        self.font = ImageFont.truetype(path, 109)
+                        self.font = truetype(path, 109)
                         self.scale = px / 109
                     except (OSError, ValueError):
                         self.font = None
@@ -872,7 +882,7 @@ class Painter:
                 # too big for its cells: a smaller size of the same font, as Ghostty fits symbols
                 shrink = min(w / max(1, ink_w), h / max(1, box[3] - box[1]), 1.0) * 0.95
                 try:
-                    font = ImageFont.truetype(face.path, max(1.0, self.px * shrink))
+                    font = truetype(face.path, max(1.0, self.px * shrink))
                     adv = font.getlength(ch)
                     box = font.getbbox(ch, anchor="ls")
                 except (OSError, ValueError, TypeError):

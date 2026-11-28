@@ -184,7 +184,16 @@ class TestCell(unittest.TestCase):
         small, big = paint.Painter("jetbrains", 12, 96), paint.Painter("jetbrains", 12, 192)
         self.assertGreater(big.cell[0], small.cell[0] * 1.8)
         self.assertTrue(small.set_font(size=13))
-        self.assertEqual(small.cell, (11, 23))
+        self.assertEqual(small.cell, (10, 23))
+
+    def test_cells_are_the_same_everywhere(self):
+        # hinted advances (Pillow's basic layout), whether or not this computer has Raqm:
+        # 13 pt is 10.39 px unhinted and 18 pt 14.41 px, which Raqm would round up to 11 and 15
+        for size, want in ((12, (10, 22)), (13, (10, 23)), (18, (14, 32))):
+            p = paint.Painter("jetbrains", size, 96)
+            self.assertEqual(p.cell, want, size)
+            self.assertEqual(p.regular.font.layout_engine, paint.BASIC_LAYOUT)
+            self.assertEqual(p.bold.font.layout_engine, paint.BASIC_LAYOUT)
 
     def test_settings_values(self):
         self.assertEqual(paint.font_key("DejaVu Sans Mono"), "dejavu")
@@ -521,15 +530,16 @@ class TestWindowMode(unittest.TestCase):
             self.assertIn("MIT License", out.getvalue())
 
     def test_the_exe_plays_and_watches_by_itself(self):
-        with mock.patch.object(sys, "frozen", True, create=True):
-            self.assertEqual(speech.player_cmd("winsound", "x.wav"), [sys.executable, "--play-wav", "x.wav"])
-            self.assertEqual(watch.command(), [os.path.abspath(sys.executable)])
+        exe = os.path.abspath("skydrop.exe")
+        with mock.patch.object(sys, "frozen", True, create=True), mock.patch.object(sys, "executable", exe):
+            self.assertEqual(speech.player_cmd("winsound", "x.wav"), [exe, "--play-wav", "x.wav"])
+            self.assertEqual(watch.command(), [exe])
             with mock.patch.object(watch, "watcher_pid", return_value=None), \
                     mock.patch("subprocess.Popen") as popen, mock.patch("time.sleep"):
                 watch.start_watcher()
             env = popen.call_args.kwargs["env"]
             self.assertEqual(env["PYINSTALLER_RESET_ENVIRONMENT"], "1")
-            self.assertEqual(popen.call_args.args[0], [os.path.abspath(sys.executable), "--watch"])
+            self.assertEqual(popen.call_args.args[0], [exe, "--watch"])       # not swapped for pythonw
         self.assertEqual(speech.player_cmd("winsound", "x.wav")[:2], [sys.executable, "-c"])
 
     def test_play_wav_flag(self):

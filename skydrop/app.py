@@ -71,7 +71,8 @@ HELP = [
     ("Ctrl-L", "redraw the screen"),
     ("q", "quit"),
 ]
-# skydrop's own window (skydrop.exe, --window): its keys, shown before Ctrl-L
+# skydrop's own window (skydrop.exe, --window): its keys, shown after the keys of every
+# screen, where a small window still has room for them
 WINDOW_HELP = [
     ("Window", "F11 or Alt-Enter full screen, Ctrl + Ctrl - font size, Ctrl 0 the size in Settings"),
     ("", "drag selects text (Shift-drag while the mouse is on), Ctrl-Shift-C or a right-click copies, "
@@ -1796,7 +1797,7 @@ class App:
         groups = ("Radar", "Alarm", "Stations", "Settings", "CRT", "Window")
         rows = list(HELP)
         if getattr(self.term, "is_window", False):
-            at = next(i for i, (k, _w) in enumerate(rows) if k == "Ctrl-L")
+            at = next(i for i, (k, _w) in enumerate(rows) if k == "Radar")
             rows[at:at] = WINDOW_HELP
         need = max(len(what) for _k, what in rows) + 24
         bw = max(44, min(W - 4, need))
