@@ -133,6 +133,52 @@ jobs:
           if exist "%APPDATA%\Microsoft\Windows\Start Menu\Programs\skydrop.lnk" (echo the Start menu shortcut is still there & exit /b 1)
           if exist "%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\skydrop" (echo the Windows Terminal profiles are still there & exit /b 1)
           exit /b 0
+      - name: Run the Windows app download
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:GITHUB_WORKSPACE "release\skydrop-$env:SKYDROP_VERSION-windows.exe"
+          if (-not (Test-Path $exe)) {
+            # the Windows app job builds it from this commit; it joins release/ in the next
+            Write-Host "::warning::release/ has no skydrop-$env:SKYDROP_VERSION-windows.exe yet"
+            exit 0
+          }
+          # downloaded with a browser: marked as from the internet
+          $dest = Join-Path $env:RUNNER_TEMP "app"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -LiteralPath $exe -Destination $dest
+          $copy = Join-Path $dest (Split-Path $exe -Leaf)
+          Set-Content -LiteralPath $copy -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3"
+          python "$env:GITHUB_WORKSPACE\tools\check_exe.py" $copy $env:SKYDROP_VERSION
+          if ($LASTEXITCODE -ne 0) { throw "the skydrop.exe in release/ didn't pass its checks" }
+
+  # skydrop.exe, the Windows app (skydrop in a window of its own), built with PyInstaller
+  # from pinned, hash-checked tools, then started the ways people and skydrop start it.
+  windows-app:
+    name: Windows app (skydrop.exe)
+    needs: tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          architecture: x64
+      - name: Install the build tools
+        run: |
+          python -m pip install --require-hashes --only-binary :all: -r tools/exe-requirements.txt
+      - name: Build skydrop.exe
+        run: python tools/build_exe.py --out dist
+      - name: Check skydrop.exe
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Filter "skydrop-*-windows.exe" | Select-Object -First 1
+          python tools/check_exe.py $exe.FullName
+          if ($LASTEXITCODE -ne 0) { throw "skydrop.exe didn't pass its checks" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skydrop-windows-exe
+          path: dist/skydrop-*-windows.exe
 
   packages:
     name: Release files

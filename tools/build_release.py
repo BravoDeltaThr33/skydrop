@@ -10,6 +10,8 @@ Makes, for the version in skydrop/__init__.py:
                                       (built only where dpkg-deb is installed)
     skydrop-VERSION-macos.zip         macOS: unzip and run bash install.sh
     skydrop-VERSION-windows.zip       Windows 10 and 11: unzip and double-click install.cmd
+    skydrop-VERSION-windows.exe       with --exe: the Windows app, built by tools/build_exe.py
+                                      (on Windows: CI's Windows app job)
     skydrop-VERSION-screenshots.zip   with --screenshots: the PNGs in that folder
     SHA256SUMS.txt                    checksums of all of the above
 
@@ -51,14 +53,17 @@ def version():
         return re.search(r'^VERSION = "([^"]+)"', fh.read(), re.M).group(1)
 
 
-def package_files(fonts=True):
-    """(path in the repository, path in the package) for the program's files."""
+def package_files(dejavu=True):
+    """(path in the repository, path in the package) for the program's files (without
+    dejavu: no DejaVu fonts, which the .deb takes from the system's fonts-dejavu-core)."""
     out = []
     base = os.path.join(ROOT, "skydrop")
     for folder, dirs, files in os.walk(base):
-        dirs[:] = sorted(d for d in dirs if d != "__pycache__" and (fonts or d != "fonts"))
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
         for name in sorted(files):
             if name.endswith((".pyc", ".pyo")) or name.startswith("."):
+                continue
+            if not dejavu and os.path.basename(folder) == "fonts" and "DejaVu" in name:
                 continue
             full = os.path.join(folder, name)
             out.append((full, os.path.relpath(full, ROOT).replace(os.sep, "/")))
@@ -155,7 +160,7 @@ Maintainer: skydrop maintainers <maintainers@skydrop.invalid>
 Installed-Size: {size}
 Depends: python3 (>= 3.8), python3-pil, fonts-dejavu-core
 Recommends: espeak-ng, pipewire-bin | pulseaudio-utils | alsa-utils, libnotify-bin, tzdata
-Suggests: kitty
+Suggests: kitty, python3-tk, python3-pil.imagetk
 Description: retro Weather Channel style weather dashboard for the terminal
  skydrop brings the look of the 1990s Weather Channel "Local on the 8s" to the
  terminal, with serious weather tools: single-site NEXRAD radar, a live
@@ -165,7 +170,9 @@ Description: retro Weather Channel style weather dashboard for the terminal
  .
  It draws real pictures in terminals that can show them (kitty, Ghostty,
  WezTerm, Konsole, foot and other sixel terminals) and a block-character
- version everywhere else. No account or API key is needed.
+ version everywhere else; skydrop --window opens it in a window of its own,
+ drawn as Ghostty draws it (with python3-tk and python3-pil.imagetk). No
+ account or API key is needed.
 """
 
 POSTINST = """#!/bin/sh
@@ -237,7 +244,7 @@ def build_deb(out_dir, ver):
             return path
 
         files = []
-        for full, rel in package_files(fonts=False):       # the system's DejaVu (fonts-dejavu-core)
+        for full, rel in package_files(dejavu=False):      # the system's DejaVu (fonts-dejavu-core)
             files.append(put("usr/lib/skydrop/" + rel, read(full)))
         files.append(put("usr/lib/skydrop/run.py", RUN_PY.encode()))
         files.append(put("usr/bin/skydrop", LAUNCHER.encode(), 0o755))
@@ -274,6 +281,7 @@ def main():
     ap = argparse.ArgumentParser(description="Build skydrop's release files.")
     ap.add_argument("--out", default=os.path.join(ROOT, "dist"), help="where to put them (default: dist/)")
     ap.add_argument("--screenshots", metavar="FOLDER", help="also zip the PNG screenshots in FOLDER")
+    ap.add_argument("--exe", metavar="FILE", help="also take this skydrop.exe (from tools/build_exe.py)")
     args = ap.parse_args()
     ver = version()
     mtime = release_time()
@@ -295,6 +303,12 @@ def main():
     path = os.path.join(args.out, f"skydrop-{ver}-windows.zip")
     write_zip(path, windows_entries(f"skydrop-{ver}-windows"), mtime)
     made.append(path)
+
+    if args.exe:
+        path = os.path.join(args.out, f"skydrop-{ver}-windows.exe")
+        if os.path.abspath(args.exe) != os.path.abspath(path):
+            shutil.copyfile(args.exe, path)
+        made.append(path)
 
     if args.screenshots:
         shots = []

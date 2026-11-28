@@ -14,7 +14,7 @@
 if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 set -u
 
-VERSION="3.16.0"
+VERSION="3.17.0"
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHARE="${XDG_DATA_HOME:-$HOME/.local/share}"
 DATA="$SHARE/skydrop"

@@ -1,5 +1,41 @@
 # Changelog
 
+## 3.17.0
+
+skydrop comes as a Windows app: `skydrop-3.17.0-windows.exe`, skydrop in a window
+of its own that draws it the way Ghostty draws it on Linux.
+
+* **The Windows app** is one file: download it and double-click. It needs no
+  Python and installs nothing; it shares its settings (`%APPDATA%\skydrop`) with
+  the terminal version. From a Command Prompt or PowerShell it takes the same
+  flags (`--now`, `--version`, ...). Its sounds, read-aloud and the background
+  tornado watch (Watch when closed starts the .exe itself at login) work as in
+  the terminal version.
+* **skydrop's own window** is a small terminal of skydrop's: the app runs in it
+  unchanged and sends it what it sends kitty or Ghostty. It works out its cell
+  from the font the way Ghostty does and draws the box lines, blocks, sextants,
+  the other legacy computing blocks and braille itself, to the pixel, as
+  Ghostty does; kitty pictures and the CRT glass show as in Ghostty. It comes
+  with Ghostty's default font, JetBrains Mono, and with DejaVu Sans Mono; the 💧
+  in the title bar is Noto Color Emoji's.
+* In the window: F11 or Alt+Enter for full screen, Ctrl+= and Ctrl+- for the
+  font size (Ctrl+0 back to the size in Settings), drag to select text
+  (Shift+drag while skydrop has the mouse), Ctrl+Shift+C or a right-click to
+  copy, Ctrl+V to paste. It comes back at the size and place it was left. `?`
+  lists these keys in the window.
+* `skydrop --window` opens the same window on Linux and macOS (it needs tkinter
+  and Pillow's ImageTk: `sudo apt install python3-tk python3-pil.imagetk` on
+  Debian and Ubuntu, which the .deb suggests).
+* Settings > Display: **Window font** (JetBrains Mono or DejaVu Sans Mono) and
+  **Window font size**; the window follows them as soon as they're saved.
+* `skydrop --licenses` prints the licenses of skydrop and of the fonts and code
+  it includes (in the Windows app: Python, Tcl/Tk, Pillow, tzdata and
+  PyInstaller's bootloader too).
+* CI builds the Windows app with PyInstaller (pinned, hash-checked build tools)
+  on a Windows machine and checks it there: it opens its window's terminal,
+  finds its fonts, time zones and Tk, and draws the Now screen with live
+  weather. It also runs the copy in release/.
+
 ## 3.16.0
 
 * The Now screen's Next 12 hours chart has a humidity line over the
