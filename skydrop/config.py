@@ -102,6 +102,8 @@ DEFAULTS = {
     "tornado_alarm_voice": "on",   # read the warning aloud after the tone
     "warning_alarm": "chime",      # other new warnings covering your ZIP: off | chime | nwr
     "background_watch": "off",     # keep watching for tornado warnings after skydrop closes
+    "window_font": "jetbrains",    # skydrop's own window (skydrop.exe, --window): jetbrains | dejavu
+    "window_font_size": 12,        # the window's font size in points
 }
 
 KNOWN_KEYS = set(DEFAULTS)

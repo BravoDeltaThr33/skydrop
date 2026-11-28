@@ -10,7 +10,9 @@ weather station around you, and forecasts read aloud in a natural voice.
 It draws real pictures in terminals that can show them (kitty and Ghostty on
 Linux and macOS, Windows Terminal, WezTerm, iTerm2, Konsole, foot and other
 sixel terminals) and a block-character version everywhere else (Tilix, GNOME
-Terminal, macOS Terminal, tmux and the rest).
+Terminal, macOS Terminal, tmux and the rest). On Windows, **skydrop.exe**
+opens it in a window of its own that draws it exactly as Ghostty does on
+Linux, with nothing to install.
 
 ![skydrop's Now screen in kitty](docs/screenshots/now.png)
 
@@ -31,6 +33,11 @@ key, you can add it in Settings as an extra source.
 * **Linux, macOS and Windows**: a .deb for Debian and Ubuntu, installers for
   any Linux, macOS and Windows 10/11, the same pictures in kitty and Ghostty
   on Linux and macOS, and in Windows Terminal (as sixel images) on Windows.
+* **A Windows app**: `skydrop.exe` is skydrop in a window of its own, drawn
+  the way Ghostty draws it on Linux: Ghostty's own font (JetBrains Mono, built
+  in), every picture, the CRT glass, and box lines and blocks matched to the
+  pixel. Download it and double-click: no Python and no installer.
+  `skydrop --window` opens the same window on Linux and macOS.
 * **Nine screens**: current conditions, a 48-hour chart and table, a 10-day
   outlook, radar, a live station feed, alerts, air quality and UV, sky and
   almanac, and your NWS office's discussions and weather radio script.
@@ -104,18 +111,19 @@ key, you can add it in Settings as an extra source.
 
 skydrop runs in any terminal; the table shows where it draws real pictures.
 Windows Terminal comes with Windows 11 and is in the Microsoft Store for
-Windows 10. On a Mac, `brew install --cask kitty` or
+Windows 10. The Windows app (`skydrop.exe`) needs nothing but 64-bit Windows
+10 or 11. On a Mac, `brew install --cask kitty` or
 `brew install --cask ghostty` gets the full look.
 
 ## Install
 
 Download the file for your system from the [release](release) folder (the
-version here is 3.16.0), then:
+version here is 3.17.0), then:
 
 ### Debian, Ubuntu and Mint: the .deb package
 
 ```bash
-cd ~/Downloads && sudo apt install ./skydrop_3.16.0_all.deb && skydrop --version
+cd ~/Downloads && sudo apt install ./skydrop_3.17.0_all.deb && skydrop --version
 ```
 
 apt pulls in what skydrop needs (Python's Pillow, the DejaVu fonts, espeak-ng
@@ -128,7 +136,7 @@ instead. Upgrade by installing a newer .deb the same way; remove it with
 ### Any Linux: the installer archive
 
 ```bash
-cd ~/Downloads && tar xzf skydrop-3.16.0-linux.tar.gz && cd skydrop-3.16.0 && ./install.sh && skydrop --version
+cd ~/Downloads && tar xzf skydrop-3.17.0-linux.tar.gz && cd skydrop-3.17.0 && ./install.sh && skydrop --version
 ```
 
 Everything goes in your home folder; nothing needs root except optional
@@ -151,11 +159,11 @@ first on your PATH wins.
 
 ### macOS
 
-Download `skydrop-3.16.0-macos.zip` and double-click it if your browser
+Download `skydrop-3.17.0-macos.zip` and double-click it if your browser
 hasn't unpacked it already. Then, in Terminal:
 
 ```bash
-cd ~/Downloads/skydrop-3.16.0-macos && bash install.sh && ~/.local/bin/skydrop --version
+cd ~/Downloads/skydrop-3.17.0-macos && bash install.sh && ~/.local/bin/skydrop --version
 ```
 
 The installer works as on Linux: a private Python with Pillow and Piper in
@@ -165,9 +173,37 @@ the backup voice and notifications use what macOS already has (`afplay`,
 `say`, Notification Center). Run skydrop in kitty or Ghostty for the full
 pictures.
 
-### Windows
+### Windows: the app
 
-1. Download `skydrop-3.16.0-windows.zip`, right-click it and choose
+1. Download `skydrop-3.17.0-windows.exe` and put it where you like: your
+   Desktop, Documents, or a folder of its own.
+2. Double-click it. The first time, Windows SmartScreen may say it protected
+   your PC, because the app isn't signed with a paid certificate: choose
+   **More info**, then **Run anyway**. (`certutil -hashfile
+   skydrop-3.17.0-windows.exe SHA256` should print the number in
+   `SHA256SUMS.txt`.)
+
+skydrop opens in a window of its own, drawn the way Ghostty draws it on
+Linux: in JetBrains Mono, Ghostty's own font, with every picture and the
+CRT glass. It installs nothing and needs no Python. Its settings live in
+`%APPDATA%\skydrop`, where the terminal version below keeps them too, so
+the two share them. Each time it starts, the .exe unpacks itself into a
+temporary folder (a second or two) and removes it when it closes; the window
+comes back at the size and place you left it.
+
+In the window, F11 or Alt+Enter goes full screen, Ctrl+= and Ctrl+- change
+the font size (Ctrl+0 goes back to the size in Settings), and a drag selects
+text (Shift+drag while skydrop has the mouse); Ctrl+Shift+C or a right-click
+copies and Ctrl+V pastes. Settings > Display has the window's font
+(JetBrains Mono or DejaVu Sans Mono) and its size.
+
+From a Command Prompt or PowerShell the one-shot flags work too, for example
+`skydrop-3.17.0-windows.exe --now`; Windows doesn't wait for a window
+program, so the prompt comes back before what it prints.
+
+### Windows: the installer (the terminal version)
+
+1. Download `skydrop-3.17.0-windows.zip`, right-click it and choose
    **Extract All**.
 2. Open the extracted folder and double-click **install.cmd**. If Windows
    SmartScreen says it protected your PC, choose **More info**, then
@@ -192,9 +228,9 @@ by typing `skydrop` in a new terminal window. In Windows Terminal 1.22 or
 newer every picture shows (as sixel images); the older console window gets
 the block-character look.
 
-For kitty's exact look on Windows, install the Linux version inside WSL
-(Windows Subsystem for Linux) and run it in kitty there (`sudo apt install
-kitty` in WSL; Windows 11 shows Linux windows on the desktop).
+For the look of kitty and Ghostty on Windows, use the app above
+(`skydrop.exe`): it draws the same pictures and the CRT glass in a window of
+its own.
 
 ### From a clone of this repository
 
@@ -375,7 +411,7 @@ of four ways to draw:
 
 | Mode | Terminals | What you get |
 |------|-----------|--------------|
-| kitty | kitty, Ghostty (Linux, macOS), WezTerm, Konsole | true pixels: the radar map; shaded weather icons (a glowing sun, top-lit clouds with soft shadows, teardrop rain, branched snowflakes); the big temperature and AQI in a shaded display face; a TV-style county warnings map; smooth charts; the 10-Day range pills; a lifelike moon with its seas and craters |
+| kitty | kitty, Ghostty (Linux, macOS), WezTerm, Konsole, skydrop's own window (`skydrop.exe`, `skydrop --window`) | true pixels: the radar map; shaded weather icons (a glowing sun, top-lit clouds with soft shadows, teardrop rain, branched snowflakes); the big temperature and AQI in a shaded display face; a TV-style county warnings map; smooth charts; the 10-Day range pills; a lifelike moon with its seas and craters |
 | sixel | Windows Terminal 1.22+, iTerm2, foot, mlterm, xterm (`xterm -ti vt340`), Contour, recent VTE builds | the same pictures, sent as sixel images (each with up to 255 colors, and without the CRT glass) |
 | blocks | Tilix, GNOME Terminal, Xfce Terminal, Terminator, macOS Terminal, the Windows console, tmux, everything else with Unicode | half-block pixel art for radar and icons, line-art weather icons, braille and block charts |
 | ascii | basic consoles and fonts without block characters | plain characters only |
@@ -385,6 +421,13 @@ Colors use 24-bit truecolor when the terminal supports it, otherwise 256 or
 mode, change Graphics and Colors in Settings, or try one for a single run:
 `skydrop --graphics blocks`. Inside tmux, pictures are switched off because
 tmux doesn't pass them through.
+
+skydrop's own window (the Windows app, and `skydrop --window` anywhere) is a
+small terminal of skydrop's that draws everything the way Ghostty does with
+its default font: kitty pictures, the CRT glass, and the box lines, blocks,
+sextants and braille drawn to the pixel rather than taken from the font. It
+needs tkinter and Pillow's ImageTk (on Debian and Ubuntu,
+`sudo apt install python3-tk python3-pil.imagetk`).
 
 ## Themes
 
@@ -683,6 +726,7 @@ From the command line: `skydrop --speak` reads current conditions,
 | Radar | `p` `P` product, `e` `E` elevation, `n` `N` radar site, `m` site radar or mosaic, `v` panes, `+` `-` zoom, arrows pan, `c` center on home, space `,` `.` `<` `>` loop, `x` inspect, `a` storm tracks, `o` smoothing, `l` `t` `w` cities, temperatures, warnings, `d` range rings, `D` radar sites, `M` markers, `F` placefiles, `y` mosaic layer, `b` map background, `i` the radar guide |
 | Stations | `f` filter, `o` sort, `+` `-` radius, Enter uses the selected station for current conditions |
 | Settings | ↑ ↓ move, Enter (or →) on a section's title opens it and Enter (or ←) closes it, Esc closes the section you're in, `+` `-` open or close them all, PgUp PgDn previous and next section, Home End first and last, `/` find (it opens the section the setting is in), ← → change a choice, switch or number, Enter edits or toggles, `S` or Ctrl-S save, `T` test connections, `D` `D` discard changes, `R` restore deleted sources, `A` test the tornado alarm, `x` deletes a data source, `e` edits its address, `v` shows keys |
+| Window | in skydrop's own window: F11 or Alt+Enter full screen, Ctrl+= Ctrl+- font size, Ctrl+0 the size in Settings, drag to select (Shift+drag while skydrop has the mouse), Ctrl+Shift+C or a right-click copies, Ctrl+V or Shift+Insert pastes |
 | CRT effects card | `c` on the Settings screen opens it: `j` `k` pick, `h` `l` or `0`-`9` level, Enter off and back, `T` try it, `R` this one to 5, `A` all to 5, `U` back to how they were, Esc closes (see [CRT mode](#crt-mode)) |
 
 The mouse works too: click a tab to switch screens, click a row on Hourly,
@@ -727,6 +771,7 @@ Placefiles you add are fetched from the addresses you give.
 
 ```
 skydrop                    the full-screen app
+skydrop --window           the app in a window of its own, drawn as Ghostty draws it (skydrop.exe always is)
 skydrop --local8s          start in Local on the 8s
 skydrop --zip 90210        another place for this run only ("City, ST" works too)
 skydrop --now              print current conditions and exit
@@ -744,6 +789,7 @@ skydrop --theme NAME       weatherstar, midnight, retro8s, star4000 or magnetic 
 skydrop --crt [PHOSPHOR]   CRT mode for this run: on, off, color, green, amber or white
 skydrop --units metric     units for this run
 skydrop --set KEY=VALUE    change a setting without opening the app
+skydrop --licenses         the licenses of skydrop and of the fonts and code it includes
 ```
 
 ## Files
@@ -769,6 +815,7 @@ On Windows:
 | `%LOCALAPPDATA%\skydrop\` | the program, its private Python, voices, this README and `uninstall.cmd` |
 | `%LOCALAPPDATA%\skydrop\cache\` | cached data, radar scans, speech audio, `skydrop.log` and `watch.log` |
 | `%LOCALAPPDATA%\skydrop\bin\skydrop.cmd` | the command |
+| `skydrop-3.17.0-windows.exe`, wherever you put it | the Windows app; while it runs, it is unpacked in a temporary folder (`%TEMP%\_MEI` and some digits) |
 | the Run key under `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion` | starts the background tornado watch when you log in (only with Watch when closed on) |
 
 ## Troubleshooting
@@ -780,7 +827,16 @@ On Windows:
   know yet), or use the Start menu shortcut.
 * **Windows: no pictures**: they need Windows Terminal 1.22 or newer; check
   `skydrop --probe` (it should say sixel). The older console window shows the
-  block-character look.
+  block-character look. The Windows app (`skydrop.exe`) always shows them.
+* **Windows: SmartScreen or an antivirus program stops skydrop.exe**: the app
+  isn't signed with a paid certificate, and some antivirus programs distrust
+  any unsigned program made with PyInstaller. Check its SHA-256 against
+  `SHA256SUMS.txt`, then choose **More info** and **Run anyway**, or use the
+  installer (the terminal version) instead.
+* **`skydrop --window` says it needs tkinter**: on Debian and Ubuntu,
+  `sudo apt install python3-tk python3-pil.imagetk`; with Homebrew's Python
+  on a Mac, `brew install python-tk`. `skydrop --window --probe` says what the
+  window has found.
 * **macOS: the installer asks for the command line developer tools**: that's
   Apple's Python asking to be installed. Accept, or install Python with
   Homebrew (`brew install python`), then run `bash install.sh` again.
@@ -859,6 +915,13 @@ Environmental Mesonet, Open-Meteo, NASA, the U.S. Census Bureau, USGS,
 RainViewer, OpenStreetMap contributors and GeoNames, and OpenWeather with
 your own key. The radar screen is modeled on Supercell Wx by Dan Paulat, and
 the color tables and placefiles follow the GRLevelX formats by Gibson Ridge
-Software. Voices by the Piper project (Open Home Foundation). The look is a
-tribute to The Weather Channel's WeatherSTAR 4000; skydrop isn't affiliated
-with The Weather Channel, Supercell Wx, Gibson Ridge or any data provider.
+Software. Voices by the Piper project (Open Home Foundation). skydrop's
+window works out its cell and draws box lines, blocks and braille the way
+Ghostty does (MIT License, Mitchell Hashimoto and Ghostty contributors), in
+JetBrains Mono (SIL Open Font License 1.1) or DejaVu Sans Mono, with the 💧
+from Noto Color Emoji (SIL Open Font License 1.1); the licenses are in
+`skydrop/fonts`. skydrop.exe is built with PyInstaller and carries Python,
+Tcl/Tk, Pillow and tzdata, each under its own license (`skydrop.exe
+--licenses` prints them all). The look is a tribute to The Weather Channel's
+WeatherSTAR 4000; skydrop isn't affiliated with The Weather Channel,
+Supercell Wx, Ghostty, Gibson Ridge or any data provider.

@@ -928,12 +928,13 @@ METER_SHADE = 0.45
 # "ascii": the ascii graphics mode (# for every segment); "style": the look
 METER = {"blocks": True, "ascii": False, "style": "led"}
 # Settings, Display: Meter blocks. Four of the looks are drawn with characters from
-# Unicode's Symbols for Legacy Computing, which kitty, Ghostty, WezTerm, foot and the VTE
-# terminals (GNOME Terminal, Tilix, ...) draw themselves; anywhere else they need a font
-# that has them. auto uses them in those terminals and plainer blocks everywhere else.
+# Unicode's Symbols for Legacy Computing, which kitty, Ghostty, WezTerm, foot, the VTE
+# terminals (GNOME Terminal, Tilix, ...) and skydrop's own window draw themselves; anywhere
+# else they need a font that has them. auto uses them in those terminals and plainer
+# blocks everywhere else.
 METER_BLOCKS = ("auto", "legacy", "plain")
 METER_BLOCKS_LABEL = {"auto": "auto", "legacy": "legacy blocks", "plain": "plain blocks"}
-LEGACY_TERMINALS = ("kitty", "ghostty", "wezterm", "foot", "vte")
+LEGACY_TERMINALS = ("kitty", "ghostty", "wezterm", "foot", "vte", "skydrop window")
 
 
 def meter_blocks_of(cfg):

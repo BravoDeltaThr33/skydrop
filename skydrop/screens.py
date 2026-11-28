@@ -176,12 +176,13 @@ def area(v, slot, values, width, height, **kw):
     if ramp and sum(1 for x in line if x is not None) >= 2:
         l_lo, l_hi = line_scale
 
-        def line_color(value):
+        def ramp_color(value):
             if len(ramp) == 1:
                 return ramp[0]
             p = max(0.0, min(1.0, (value - l_lo) / ((l_hi - l_lo) or 1.0))) * (len(ramp) - 1)
             i = min(len(ramp) - 2, int(p))
             return blend(ramp[i], ramp[i + 1], p - i)
+        line_color = ramp_color
     else:
         line = ()
     key = (f"area:{slot}:{th.name}:{back}:{cols}x{rows}:{start}:{gutter}:"

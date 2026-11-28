@@ -59,6 +59,13 @@ FIELDS = [
      "glass effects need kitty pictures in kitty or Ghostty; blocks and ascii keep the CRT's text effects."),
     ("fld", "color_mode", "Colors", "choice:auto,truecolor,256,16",
      "auto detects 24-bit color. Pick 256 or 16 if colors look wrong."),
+    ("fld", "window_font", "Window font", "choice:jetbrains,dejavu",
+     "The font of skydrop's own window (skydrop.exe on Windows, or skydrop --window anywhere), which draws "
+     "skydrop the way Ghostty does: jetbrains is JetBrains Mono, Ghostty's own font; dejavu is DejaVu Sans Mono. "
+     "Both come with skydrop. In a terminal, skydrop shows in the terminal's font."),
+    ("fld", "window_font_size", "Window font size", "int:6:48",
+     "The window's font size in points (6 to 48). In the window Ctrl + and Ctrl - make it bigger or smaller for a "
+     "while, and Ctrl 0 puts this size back."),
     ("fld", "ticker", "Bottom ticker", "choice:paged,crawl,off",
      "The WeatherSTAR-style line along the bottom: paged shows one item at a time, crawl scrolls."),
     ("fld", "clock_seconds", "Clock seconds", ONOFF, "Show seconds on the header clock."),
@@ -245,8 +252,8 @@ SECTION_HELP = {
     "Location": "Where the weather is for: the ZIP code or a place, a display name, coordinates, the "
                 "country and the observation station.",
     "Display": "How skydrop looks: units, theme, background, corners, graphics and colors; the meters, the CRT "
-               "effect, its phosphor, font and font size; the ticker, clock, mouse, refresh, and how much the "
-               "Hourly and 10-Day screens show.",
+               "effect, its phosphor, font and font size; the font of skydrop's own window; the ticker, clock, "
+               "mouse, refresh, and how much the Hourly and 10-Day screens show.",
     "Tornado alarm": "The alarm when a tornado warning covers your ZIP code, its sound and repeats, the sounds "
                      "for other warnings, and the watch that keeps listening after skydrop closes.",
     "Warnings crawl": "The crawl of watches, warnings and storm reports along the bottom: what it covers and "
